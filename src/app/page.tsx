@@ -24,13 +24,13 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold ml-2">LojaFacil</h1>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Insira seu email para acessar sua conta</CardDescription>
+          <CardDescription>Insira seu usuário para acessar sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
+              <Label htmlFor="username">Usuário</Label>
+              <Input id="username" type="text" placeholder="seu-usuario" required />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
