@@ -4,8 +4,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
+  ShoppingCart,
   CreditCard,
   Package,
+  Megaphone,
   Paintbrush,
   Plug,
   BarChart2,
@@ -20,8 +22,10 @@ import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingCart },
   { href: "/dashboard/adquirentes", label: "Adquirentes", icon: CreditCard },
   { href: "/dashboard/produtos", label: "Produtos", icon: Package },
+  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
   { href: "/dashboard/personalizar", label: "Personalizar", icon: Paintbrush },
   { href: "/dashboard/integrations", label: "Integrações", icon: Plug },
   { href: "/dashboard/relatorios", label: "Relatórios", icon: BarChart2 },
