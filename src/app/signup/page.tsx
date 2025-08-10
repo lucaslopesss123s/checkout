@@ -14,7 +14,7 @@ function Logo() {
   );
 }
 
-export default function LoginPage() {
+export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="mx-auto w-full max-w-sm">
@@ -23,32 +23,35 @@ export default function LoginPage() {
             <Logo />
             <h1 className="text-3xl font-bold ml-2">LojaFacil</h1>
           </div>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Insira seu email para acessar sua conta</CardDescription>
+          <CardTitle className="text-2xl">Cadastro</CardTitle>
+          <CardDescription>Crie sua conta para começar a vender</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="full-name">Nome Completo</Label>
+              <Input id="full-name" placeholder="Seu Nome" required />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="m@example.com" required />
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Senha</Label>
-                <Link href="#" className="ml-auto inline-block text-sm underline">
-                  Esqueceu sua senha?
-                </Link>
-              </div>
-              <Input id="password" type="password" required />
+              <Label htmlFor="password">Senha</Label>
+              <Input id="password" type="password" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirm-password">Confirmar Senha</Label>
+              <Input id="confirm-password" type="password" />
             </div>
             <Button type="submit" className="w-full" asChild>
-              <Link href="/dashboard">Login</Link>
+              <Link href="/dashboard">Criar Conta</Link>
             </Button>
           </div>
           <div className="mt-4 text-center text-sm">
-            Não tem uma conta?{' '}
-            <Link href="/signup" className="underline">
-              Cadastre-se
+            Já tem uma conta?{' '}
+            <Link href="/" className="underline">
+              Login
             </Link>
           </div>
         </CardContent>
