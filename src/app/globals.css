@@ -30,6 +30,13 @@
     --chart-3: 220 70% 50%;
     --chart-4: 160 60% 45%;
     --chart-5: 30 80% 55%;
+
+    --sidebar-background: 228 60% 95%;
+    --sidebar-foreground: 222 84% 5%;
+    --sidebar-border: 228 30% 88%;
+    --sidebar-accent: 231 48% 48%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-ring: 231 48% 48%;
   }
 
   .dark {
@@ -58,6 +65,13 @@
     --chart-3: 220 70% 60%;
     --chart-4: 160 60% 55%;
     --chart-5: 30 80% 65%;
+
+    --sidebar-background: 231 20% 15%;
+    --sidebar-foreground: 228 67% 97%;
+    --sidebar-border: 231 20% 25%;
+    --sidebar-accent: 231 48% 58%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-ring: 231 48% 58%;
   }
 }
 
@@ -67,5 +81,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .bg-sidebar {
+    background-color: hsl(var(--sidebar-background));
   }
 }
