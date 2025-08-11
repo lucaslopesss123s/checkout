@@ -37,9 +37,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const signup = async (username: string, email: string, password: string) => {
-        // Check if username already exists
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("username", "==", username));
+        
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
             throw new Error("Este nome de usuário já está em uso.");
@@ -48,8 +48,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
 
-        // Save username and email in Firestore
-        // The collection 'users' will be created automatically if it doesn't exist.
         await setDoc(doc(db, "users", newUser.uid), {
             uid: newUser.uid,
             username: username,
@@ -60,7 +58,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const login = async (username: string, password: string) => {
-        // Find user by username in Firestore
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("username", "==", username));
         const querySnapshot = await getDocs(q);
@@ -76,7 +73,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
              throw new Error("Não foi possível encontrar o e-mail associado a este usuário.");
         }
 
-        // Sign in with email and password
         return signInWithEmailAndPassword(auth, email, password);
     };
 
