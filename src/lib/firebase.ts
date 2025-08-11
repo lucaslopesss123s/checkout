@@ -7,7 +7,7 @@ import { firebaseConfig } from "@/lib/firebase-config";
 // Initialize Firebase
 let app: FirebaseApp;
 
-if (getApps().length === 0) {
+if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
