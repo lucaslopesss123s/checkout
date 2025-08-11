@@ -1,8 +1,14 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuth } from '@/contexts/auth-context'
+import { FormEvent, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
 
 function Logo() {
   return (
@@ -15,6 +21,37 @@ function Logo() {
 }
 
 export default function SignupPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const { signup } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSignup = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro de Cadastro",
+        description: "As senhas não coincidem.",
+      })
+      return;
+    }
+    try {
+      await signup(email, password);
+      router.push('/dashboard');
+    } catch (error: any) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Erro de Cadastro",
+            description: error.message || "Não foi possível criar a conta.",
+        })
+    }
+  };
+
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="mx-auto w-full max-w-sm">
@@ -27,23 +64,23 @@ export default function SignupPage() {
           <CardDescription>Crie sua conta para começar a vender</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
+          <form onSubmit={handleSignup} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="username">Usuário</Label>
-              <Input id="username" placeholder="Seu usuário" required />
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="confirm-password">Confirmar Senha</Label>
-              <Input id="confirm-password" type="password" />
+              <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}/>
             </div>
-            <Button type="submit" className="w-full" asChild>
-              <Link href="/dashboard">Criar Conta</Link>
+            <Button type="submit" className="w-full">
+              Criar Conta
             </Button>
-          </div>
+          </form>
           <div className="mt-4 text-center text-sm">
             Já tem uma conta?{' '}
             <Link href="/" className="underline">
