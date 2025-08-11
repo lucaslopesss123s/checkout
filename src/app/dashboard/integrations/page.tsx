@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Copy, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 function CopyButton({ textToCopy }: { textToCopy: string }) {
   const [hasCopied, setHasCopied] = useState(false);
@@ -76,18 +77,20 @@ export default function IntegrationsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Plataformas</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <Card className="col-span-1">
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">Shopify</CardTitle>
-                  <Badge>Instalar</Badge>
+          <Link href="/dashboard/integrations/shopify" className="col-span-1">
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between p-4 h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">Shopify</CardTitle>
+                    <Badge>Instalar</Badge>
+                  </div>
+                  <CardDescription className="text-xs">Plataforma global de e-commerce.</CardDescription>
                 </div>
-                <CardDescription className="text-xs">Plataforma global de e-commerce.</CardDescription>
-              </div>
-              <ShopifyIcon />
-            </CardContent>
-          </Card>
+                <ShopifyIcon />
+              </CardContent>
+            </Card>
+          </Link>
           <Card className="col-span-1">
             <CardContent className="flex items-center justify-between p-4">
               <div className="space-y-1">
