@@ -5,37 +5,52 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, PlusCircle, Search, Trash2, Pencil, Package } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { PlusCircle, Search, Trash2, Pencil } from "lucide-react"
 
 const products = [
   {
     id: "1",
-    name: "Tênis de Corrida UltraBoost",
+    name: "T-Shirt Clássica de Algodão",
     status: "Ativo",
     shipping: "Sim",
     image: "https://placehold.co/40x40.png",
-    inventory: 120,
+    inventory: 150,
   },
   {
     id: "2",
-    name: "Camiseta de Algodão Pima",
+    name: "Calça Jeans Slim Fit",
     status: "Ativo",
     shipping: "Sim",
     image: "https://placehold.co/40x40.png",
-    inventory: 75,
+    inventory: 80,
   },
   {
     id: "3",
-    name: "Fone de Ouvido Bluetooth Pro",
+    name: "Moletom com Capuz Essencial",
+    status: "Ativo",
+    shipping: "Sim",
+    image: "https://placehold.co/40x40.png",
+    inventory: 45,
+  },
+   {
+    id: "4",
+    name: "Tênis Casual Urbano",
     status: "Inativo",
     shipping: "Sim",
     image: "https://placehold.co/40x40.png",
     inventory: 0,
   },
    {
-    id: "4",
-    name: "Ebook: Guia de Marketing Digital",
+    id: "5",
+    name: "Óculos de Sol Aviador",
+    status: "Ativo",
+    shipping: "Sim",
+    image: "https://placehold.co/40x40.png",
+    inventory: 60,
+  },
+  {
+    id: "6",
+    name: "Gift Card Digital",
     status: "Ativo",
     shipping: "Não",
     image: "https://placehold.co/40x40.png",
