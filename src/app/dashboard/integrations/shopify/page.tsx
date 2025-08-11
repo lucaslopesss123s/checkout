@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, Download, Package } from "lucide-react"
 
 export default function ShopifyIntegrationPage() {
     const { user } = useAuth();
@@ -90,6 +90,18 @@ export default function ShopifyIntegrationPage() {
                                     <SelectItem value="inativo">Inativo</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Sincronização</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                           <Button className="w-full">
+                               <Download className="mr-2 h-4 w-4"/>
+                               Importar Produtos
+                           </Button>
+                           <p className="text-xs text-muted-foreground">Importe seus produtos cadastrados no Shopify para a LojaFacil.</p>
                         </CardContent>
                     </Card>
                      <Card>

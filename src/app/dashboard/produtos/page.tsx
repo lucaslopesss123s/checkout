@@ -1,4 +1,3 @@
-
 'use client'
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -6,23 +5,41 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, PlusCircle, Search, Trash2, Pencil } from "lucide-react"
+import { MoreHorizontal, PlusCircle, Search, Trash2, Pencil, Package } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 const products = [
   {
     id: "1",
-    name: "Curso de Next.js",
+    name: "Tênis de Corrida UltraBoost",
     status: "Ativo",
-    shipping: "Não",
+    shipping: "Sim",
     image: "https://placehold.co/40x40.png",
+    inventory: 120,
   },
   {
     id: "2",
-    name: "Ebook de Tailwind CSS",
+    name: "Camiseta de Algodão Pima",
+    status: "Ativo",
+    shipping: "Sim",
+    image: "https://placehold.co/40x40.png",
+    inventory: 75,
+  },
+  {
+    id: "3",
+    name: "Fone de Ouvido Bluetooth Pro",
     status: "Inativo",
+    shipping: "Sim",
+    image: "https://placehold.co/40x40.png",
+    inventory: 0,
+  },
+   {
+    id: "4",
+    name: "Ebook: Guia de Marketing Digital",
+    status: "Ativo",
     shipping: "Não",
     image: "https://placehold.co/40x40.png",
+    inventory: Infinity,
   },
 ];
 
@@ -45,21 +62,25 @@ export default function ProdutosPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Seus Produtos</CardTitle>
-            <CardDescription>Visualize e gerencie todos os seus produtos cadastrados.</CardDescription>
+            <div className="flex items-center justify-between">
+                 <div>
+                    <CardTitle>Seus Produtos</CardTitle>
+                    <CardDescription>Visualize e gerencie todos os seus produtos cadastrados.</CardDescription>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Procurar produto..." className="pl-8" />
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Procurar produto..." className="pl-8" />
-            </div>
-          </div>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px] hidden sm:table-cell"></TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Estoque</TableHead>
                 <TableHead>Requer Envio</TableHead>
                 <TableHead>
                   <span className="sr-only">Ações</span>
@@ -69,44 +90,37 @@ export default function ProdutosPage() {
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
+                    <TableCell className="hidden sm:table-cell">
                         <img src={product.image} alt={product.name} className="h-10 w-10 rounded-md object-cover" data-ai-hint="product image" />
-                        <span>{product.name}</span>
-                    </div>
                     </TableCell>
+                  <TableCell className="font-medium">
+                    {product.name}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={product.status === "Ativo" ? "default" : "outline"}>
+                    <Badge variant={product.status === "Ativo" ? "default" : "outline"} className={product.status === "Ativo" ? "bg-green-100 text-green-800 border-green-200" : ""}>
                       {product.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>{product.inventory === Infinity ? 'Ilimitado' : product.inventory}</TableCell>
                   <TableCell>{product.shipping}</TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
+                     <div className="flex items-center gap-2">
+                        <Button size="icon" variant="outline" className="h-8 w-8">
+                            <Pencil className="h-4 w-4"/>
+                            <span className="sr-only">Editar</span>
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4"/>
-                            Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4"/>
-                            Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4"/>
+                            <span className="sr-only">Excluir</span>
+                        </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
           <div className="flex items-center justify-end space-x-2 pt-4">
+              <span className="text-sm text-muted-foreground">Mostrando {products.length} de {products.length} produtos</span>
               <Button variant="outline" size="sm">Anterior</Button>
               <Button variant="outline" size="sm">Próxima</Button>
           </div>
