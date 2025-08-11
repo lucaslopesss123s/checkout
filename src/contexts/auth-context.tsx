@@ -9,14 +9,14 @@ import {
     User 
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, doc, setDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signup: (username: string, email: string, password: string) => Promise<any>;
-    login: (username: string, password: string) => Promise<any>;
+    signup: (email: string, password: string) => Promise<any>;
+    login: (email: string, password: string) => Promise<any>;
     logout: () => Promise<void>;
 }
 
@@ -36,43 +36,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => unsubscribe();
     }, []);
 
-    const signup = async (username: string, email: string, password: string) => {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("username", "==", username));
-        
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            throw new Error("Este nome de usuário já está em uso.");
-        }
-
+    const signup = async (email: string, password: string) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
 
+        // Optional: Save user info to Firestore
         await setDoc(doc(db, "users", newUser.uid), {
             uid: newUser.uid,
-            username: username,
             email: email,
         });
 
         return userCredential;
     };
 
-    const login = async (username: string, password: string) => {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("username", "==", username));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            throw new Error("Usuário ou senha inválidos.");
-        }
-
-        const userData = querySnapshot.docs[0].data();
-        const email = userData.email;
-
-        if (!email) {
-             throw new Error("Não foi possível encontrar o e-mail associado a este usuário.");
-        }
-
+    const login = async (email: string, password: string) => {
         return signInWithEmailAndPassword(auth, email, password);
     };
 

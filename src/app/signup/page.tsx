@@ -21,26 +21,16 @@ function Logo() {
 }
 
 export default function SignupPage() {
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const { signup } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Erro de Cadastro",
-        description: "As senhas não coincidem.",
-      })
-      return;
-    }
     try {
-      await signup(username, email, password);
+      await signup(email, password);
       router.push('/dashboard');
     } catch (error: any) {
         console.error("Erro detalhado no cadastro:", error);
@@ -67,20 +57,12 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSignup} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="username">Nome de Usuário</Label>
-              <Input id="username" type="text" placeholder="ex: joao.silva" required value={username} onChange={(e) => setUsername(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="confirm-password">Confirmar Senha</Label>
-              <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}/>
             </div>
             <Button type="submit" className="w-full">
               Criar Conta
