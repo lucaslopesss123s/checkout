@@ -43,7 +43,7 @@ export default function SignupPage() {
       await signup(username, email, password);
       router.push('/dashboard');
     } catch (error: any) {
-        console.error(error);
+        console.error("Erro detalhado no cadastro:", error);
         toast({
             variant: "destructive",
             title: "Erro de Cadastro",

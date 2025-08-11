@@ -37,12 +37,12 @@ export default function LoginPage() {
     try {
       await login(username, password);
       router.push('/dashboard');
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Erro detalhado no login:", error);
       toast({
         variant: 'destructive',
         title: 'Erro de login',
-        description: 'Verifique seu nome de usuário e senha.',
+        description: error.message || 'Verifique seu nome de usuário e senha.',
       })
     }
   };
