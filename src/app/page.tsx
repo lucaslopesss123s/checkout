@@ -20,7 +20,7 @@ function Logo() {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const { login, user } = useAuth();
   const router = useRouter();
@@ -35,14 +35,14 @@ export default function LoginPage() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await login(email, password);
+      await login(username, password);
       router.push('/dashboard');
     } catch (error) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: 'Erro de login',
-        description: 'Verifique seu e-mail e senha.',
+        description: 'Verifique seu nome de usuário e senha.',
       })
     }
   };
@@ -57,13 +57,13 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold ml-2">LojaFacil</h1>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Insira seu e-mail e senha para acessar sua conta</CardDescription>
+          <CardDescription>Insira seu nome de usuário e senha para acessar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="username">Nome de Usuário</Label>
+              <Input id="username" type="text" placeholder="ex: joao.silva" required value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">

@@ -8,14 +8,15 @@ import {
     signOut,
     User 
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { collection, doc, setDoc, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signup: (email: string, password: string) => Promise<any>;
-    login: (email: string, password: string) => Promise<any>;
+    signup: (username: string, email: string, password: string) => Promise<any>;
+    login: (username: string, password: string) => Promise<any>;
     logout: () => Promise<void>;
 }
 
@@ -35,11 +36,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => unsubscribe();
     }, []);
 
-    const signup = (email: string, password: string) => {
-        return createUserWithEmailAndPassword(auth, email, password);
+    const signup = async (username: string, email: string, password: string) => {
+        // Check if username already exists
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", username));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            throw new Error("Este nome de usuário já está em uso.");
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+
+        // Save username and email in Firestore
+        await setDoc(doc(db, "users", newUser.uid), {
+            uid: newUser.uid,
+            username: username,
+            email: email,
+        });
+
+        return userCredential;
     };
 
-    const login = (email: string, password: string) => {
+    const login = async (username: string, password: string) => {
+        // Find user by username in Firestore
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", username));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            throw new Error("Nome de usuário não encontrado.");
+        }
+
+        const userData = querySnapshot.docs[0].data();
+        const email = userData.email;
+
+        // Sign in with email and password
         return signInWithEmailAndPassword(auth, email, password);
     };
 

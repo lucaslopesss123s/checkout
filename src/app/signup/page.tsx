@@ -21,6 +21,7 @@ function Logo() {
 }
 
 export default function SignupPage() {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,7 +40,7 @@ export default function SignupPage() {
       return;
     }
     try {
-      await signup(email, password);
+      await signup(username, email, password);
       router.push('/dashboard');
     } catch (error: any) {
         console.error(error);
@@ -65,6 +66,10 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="username">Nome de Usuário</Label>
+              <Input id="username" type="text" placeholder="ex: joao.silva" required value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
