@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newUser = userCredential.user;
 
         // Save username and email in Firestore
+        // The collection 'users' will be created automatically if it doesn't exist.
         await setDoc(doc(db, "users", newUser.uid), {
             uid: newUser.uid,
             username: username,
@@ -65,11 +66,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            throw new Error("Nome de usuário não encontrado.");
+            throw new Error("Usuário ou senha inválidos.");
         }
 
         const userData = querySnapshot.docs[0].data();
         const email = userData.email;
+
+        if (!email) {
+             throw new Error("Não foi possível encontrar o e-mail associado a este usuário.");
+        }
 
         // Sign in with email and password
         return signInWithEmailAndPassword(auth, email, password);
