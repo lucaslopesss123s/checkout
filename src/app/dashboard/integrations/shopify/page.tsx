@@ -8,11 +8,46 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
-import { CheckCircle, Download, Package } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { CheckCircle, Download, Loader2 } from "lucide-react"
+import { useState } from "react"
 
 export default function ShopifyIntegrationPage() {
     const { user } = useAuth();
+    const { toast } = useToast();
+    const [isImporting, setIsImporting] = useState(false);
     const username = user?.displayName || user?.email?.split('@')[0] || 'Usuário';
+
+    const handleImport = async () => {
+        setIsImporting(true);
+        try {
+            const response = await fetch('/api/shopify/import-products', {
+                method: 'POST',
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.details || 'Falha ao importar produtos.');
+            }
+
+            toast({
+                title: "Sucesso!",
+                description: `${result.count || 0} produtos foram importados. Atualize a página de produtos para vê-los.`,
+            });
+
+        } catch (error) {
+             const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido';
+             toast({
+                variant: "destructive",
+                title: "Erro na importação",
+                description: errorMessage,
+             });
+        } finally {
+            setIsImporting(false);
+        }
+    }
+
 
     return (
         <div className="space-y-6">
@@ -97,8 +132,12 @@ export default function ShopifyIntegrationPage() {
                             <CardTitle>Sincronização</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                           <Button className="w-full">
-                               <Download className="mr-2 h-4 w-4"/>
+                           <Button className="w-full" onClick={handleImport} disabled={isImporting}>
+                               {isImporting ? (
+                                   <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                               ) : (
+                                   <Download className="mr-2 h-4 w-4"/>
+                               )}
                                Importar Produtos
                            </Button>
                            <p className="text-xs text-muted-foreground">Importe seus produtos cadastrados no Shopify para a LojaFacil.</p>
