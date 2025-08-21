@@ -21,24 +21,39 @@ function Logo() {
 }
 
 export default function SignupPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { signup } = useAuth();
+  const [name, setName] = useState('');
   const router = useRouter();
   const { toast } = useToast();
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await signup(email, password);
-      router.push('/dashboard');
+      // Usar a nova API de registro com username, password e name
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, name }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao registrar usuário');
+      }
+
+      // Redirecionar para a página de login
+      router.push('/?registered=true');
     } catch (error: any) {
-        console.error("Erro detalhado no cadastro:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro de Cadastro",
-            description: error.message || "Não foi possível criar a conta.",
-        })
+      console.error("Erro detalhado no cadastro:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro de Cadastro",
+        description: error.message || "Não foi possível criar a conta.",
+      })
     }
   };
 
@@ -52,13 +67,17 @@ export default function SignupPage() {
             <h1 className="text-3xl font-bold ml-2">LojaFacil</h1>
           </div>
           <CardTitle className="text-2xl">Cadastro</CardTitle>
-          <CardDescription>Crie sua conta para começar a vender</CardDescription>
+          <CardDescription>Crie sua conta com usuário e senha para começar a vender</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="name">Nome</Label>
+              <Input id="name" type="text" placeholder="Seu nome completo" required value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="username">Usuário</Label>
+              <Input id="username" type="text" placeholder="seu-nome-de-usuario" required value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Senha</Label>

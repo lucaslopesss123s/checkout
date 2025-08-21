@@ -1,6 +1,7 @@
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
+import { useActionState } from 'react'
+import { useFormStatus } from 'react-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,7 +43,7 @@ function SubmitButton() {
 }
 
 export function AiOptimizer() {
-  const [state, formAction] = useFormState(getSuggestions, initialState);
+  const [state, formAction] = useActionState(getSuggestions, initialState);
 
   return (
     <Card>

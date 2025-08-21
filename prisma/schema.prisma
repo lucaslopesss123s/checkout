@@ -1,0 +1,225 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1 - User (mantendo igual)
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stores    Store[]
+  lojas_admin Loja_admin[]
+}
+
+model Store {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+  orders    Order[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  image       String?
+  status      String   @default("Ativo")
+  inventory   Int      @default(0)
+  shipping    Boolean  @default(true)
+  shopify_id  String?  @unique
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  storeId   String
+  store     Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items     OrderItem[]
+  status    String      @default("pending") // pending, processing, completed, cancelled
+  total     Float
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 2 - Admin (adicionando colunas)
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  name      String?
+  email     String?
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 3 - Loja_Shopify
+model Loja_Shopify {
+  id            String   @id @default(uuid())
+  chave_api     String
+  chave_secreta String
+  token_api     String
+  dominio_api   String
+  id_loja       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 4 - Pedidos
+model Pedidos {
+  id        String   @id @default(uuid())
+  status    String   @default("pending")
+  total     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 5 - Loja_Landingpage
+model Loja_Landingpage {
+  id        String   @id @default(uuid())
+  nome      String
+  url       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 6 - Loja_Wordpress
+model Loja_Wordpress {
+  id        String   @id @default(uuid())
+  nome      String
+  url       String?
+  api_key   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 7 - Orderbump
+model Orderbump {
+  id        String   @id @default(uuid())
+  titulo    String
+  descricao String?
+  valor     Float
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 8 - Upssel
+model Upssel {
+  id        String   @id @default(uuid())
+  titulo    String
+  descricao String?
+  valor     Float
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 9 - Frete (adicionando id_loja)
+model Frete {
+  id           String   @id @default(uuid())
+  Nome         String
+  valor        Float
+  valorminimo  Float
+  prazominimo  Int
+  prazomaximo  Int
+  id_loja      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 10 - Adquirentes
+model Adquirentes {
+  id        String   @id @default(uuid())
+  nome      String
+  tipo      String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 11 - Checkout (adicionando id_loja)
+model Checkout {
+  id                   String   @id @default(uuid())
+  Tema                 String?
+  Logo                 String?
+  Favicon              String?
+  Corbarra             String?
+  Corbotao             String?
+  Contagemregressiva   Boolean  @default(false)
+  BarraTexto           String?
+  id_loja              String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// 12 - Produtos (adicionando id_loja)
+model Produtos {
+  id                    String   @id @default(uuid())
+  id_loja               String
+  Titulo                String
+  Descricao             String?
+  valor                 Float
+  valordesconto         Float?
+  Imagem                String?
+  Altura                Float?
+  Largura               Float?
+  Comprimento           Float?
+  shopify_produto_id    String?
+  shopify_variante_id   String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// 13 - Pixel
+model Pixel {
+  id        String   @id @default(uuid())
+  nome      String?
+  codigo    String?
+  tipo      String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 14 - Loja_admin (mantendo exatamente igual)
+model Loja_admin {
+  id        String   @id @default(uuid())
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

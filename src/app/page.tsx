@@ -20,7 +20,7 @@ function Logo() {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const { login, user } = useAuth();
   const router = useRouter();
@@ -35,14 +35,32 @@ export default function LoginPage() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await login(email, password);
+      // Usar a nova API de login com username e senha
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao fazer login');
+      }
+
+      // Salvar o token no localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
       router.push('/dashboard');
     } catch (error: any) {
       console.error("Erro detalhado no login:", error);
       toast({
         variant: 'destructive',
         title: 'Erro de login',
-        description: error.message || 'Verifique seu e-mail e senha.',
+        description: error.message || 'Verifique seu usuário e senha.',
       })
     }
   };
@@ -57,13 +75,13 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold ml-2">LojaFacil</h1>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Insira seu e-mail e senha para acessar</CardDescription>
+          <CardDescription>Insira seu usuário e senha para acessar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="seu-email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="username">Usuário</Label>
+              <Input id="username" type="text" placeholder="seu-nome-de-usuario" required value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">

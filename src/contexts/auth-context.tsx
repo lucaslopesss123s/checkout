@@ -1,22 +1,19 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-    onAuthStateChanged, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut,
-    User 
-} from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+
+interface User {
+    id: string;
+    username: string;
+    name: string;
+}
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signup: (email: string, password: string) => Promise<any>;
-    login: (email: string, password: string) => Promise<any>;
+    signup: (username: string, password: string, name: string) => Promise<any>;
+    login: (username: string, password: string) => Promise<any>;
     logout: () => Promise<void>;
 }
 
@@ -28,33 +25,75 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        // Verificar se há um token e usuário no localStorage
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (token && storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (error) {
+                console.error('Erro ao analisar dados do usuário:', error);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        }
+        
+        setLoading(false);
     }, []);
 
-    const signup = async (email: string, password: string) => {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const newUser = userCredential.user;
-
-        // Optional: Save user info to Firestore
-        await setDoc(doc(db, "users", newUser.uid), {
-            uid: newUser.uid,
-            email: email,
+    const signup = async (username: string, password: string, name: string) => {
+        const response = await fetch('/api/auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password, name }),
         });
 
-        return userCredential;
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Erro ao registrar usuário');
+        }
+
+        return data;
     };
 
-    const login = async (email: string, password: string) => {
-        return signInWithEmailAndPassword(auth, email, password);
+    const login = async (username: string, password: string) => {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Erro ao fazer login');
+        }
+
+        // Salvar o token e os dados do usuário no localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Atualizar o estado do usuário
+        setUser(data.user);
+
+        return data;
     };
 
     const logout = async () => {
-        await signOut(auth);
+        // Remover o token e os dados do usuário do localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Limpar o estado do usuário
+        setUser(null);
+        
+        // Redirecionar para a página inicial
         router.push('/');
     };
 
