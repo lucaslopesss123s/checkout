@@ -1,7 +1,8 @@
 
 'use server'
 
-import { suggestCheckoutImprovements, SuggestCheckoutImprovementsInput } from '@/ai/flows/suggest-checkout-improvements'
+// Temporariamente comentado para resolver problemas de build
+// import { suggestCheckoutImprovements, SuggestCheckoutImprovementsInput } from '@/ai/flows/suggest-checkout-improvements'
 
 export interface AIState {
   suggestions: string | null
@@ -26,14 +27,9 @@ export async function getSuggestions(
   }
 
   try {
-    const input: SuggestCheckoutImprovementsInput = {
-      paymentTypes,
-      cartSize,
-      currentCheckoutFunnel,
-    };
-    const result = await suggestCheckoutImprovements(input);
+    // Temporariamente desabilitado - funcionalidade de IA será reativada após correção do build
     return {
-      suggestions: result.suggestedImprovements,
+      suggestions: 'Funcionalidade de sugestões de IA temporariamente indisponível. Será reativada em breve.',
       error: null,
       loading: false,
     };

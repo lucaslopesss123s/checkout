@@ -1,13 +1,27 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
+  // Desabilitar telemetria para builds mais limpos
+  telemetry: false,
+  
+  // Otimizações para produção
+  experimental: {
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },
+  
+  // Configurações de build
+  output: 'standalone',
+  
+  // Ignorar erros de lint durante build (temporário)
   eslint: {
     ignoreDuringBuilds: true,
   },
+  
+  // Ignorar erros de TypeScript durante build (temporário)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
   images: {
     remotePatterns: [
       {
