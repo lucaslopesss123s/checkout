@@ -16,7 +16,9 @@ import {
   Target,
   ArrowUp,
   ArrowDown,
-  Ticket
+  Ticket,
+  CheckCircle,
+  ShoppingBag
 } from "lucide-react"
 import {
     Collapsible,
@@ -36,7 +38,14 @@ import React from "react"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingCart },
+  {
+    label: "Pedidos",
+    icon: ShoppingCart,
+    subItems: [
+      { href: "/dashboard/pedidos/realizados", label: "Pedidos Realizados", icon: CheckCircle },
+      { href: "/dashboard/pedidos/carrinhos-abandonados", label: "Carrinhos Abandonados", icon: ShoppingBag },
+    ],
+  },
   { href: "/dashboard/adquirentes", label: "Adquirentes", icon: CreditCard },
   { href: "/dashboard/produtos", label: "Produtos", icon: Package },
   {
@@ -57,10 +66,14 @@ const navItems = [
 export function MainNav() {
   const pathname = usePathname()
   const [openMarketing, setOpenMarketing] = React.useState(false);
+  const [openPedidos, setOpenPedidos] = React.useState(false);
 
   React.useEffect(() => {
     if (pathname.startsWith('/dashboard/marketing')) {
         setOpenMarketing(true);
+    }
+    if (pathname.startsWith('/dashboard/pedidos')) {
+        setOpenPedidos(true);
     }
   }, [pathname]);
 
@@ -68,19 +81,23 @@ export function MainNav() {
     <SidebarMenu>
       {navItems.map((item, index) => (
         item.subItems ? (
-            <Collapsible key={index} open={openMarketing} onOpenChange={setOpenMarketing}>
+            <Collapsible 
+                key={index} 
+                open={item.label === 'Marketing' ? openMarketing : openPedidos} 
+                onOpenChange={item.label === 'Marketing' ? setOpenMarketing : setOpenPedidos}
+            >
                 <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                         <SidebarMenuButton
                             variant="default"
                             className="w-full justify-between"
-                            isActive={pathname.startsWith('/dashboard/marketing')}
+                            isActive={item.label === 'Marketing' ? pathname.startsWith('/dashboard/marketing') : pathname.startsWith('/dashboard/pedidos')}
                         >
                             <div className="flex items-center gap-2">
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.label}</span>
                             </div>
-                            <ChevronDown className={cn("h-4 w-4 transition-transform", openMarketing && "rotate-180")} />
+                            <ChevronDown className={cn("h-4 w-4 transition-transform", (item.label === 'Marketing' ? openMarketing : openPedidos) && "rotate-180")} />
                         </SidebarMenuButton>
                     </CollapsibleTrigger>
                 </SidebarMenuItem>

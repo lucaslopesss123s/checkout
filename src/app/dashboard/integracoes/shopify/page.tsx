@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react'
@@ -75,67 +74,8 @@ export default function ShopifyIntegrationPage() {
   }, [selectedStore])
 
   const loadExistingConfig = async () => {
-    if (!selectedStore) return
-    
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) return
-
-      // Buscar configuração Shopify existente
-      const shopifyResponse = await fetch(`/api/shopify/stores?storeId=${selectedStore.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (shopifyResponse.ok) {
-        const existingConfig = await shopifyResponse.json()
-        
-        setConfig({
-          id: existingConfig.id,
-          chave_api: existingConfig.chave_api || '',
-          chave_secreta: existingConfig.chave_secreta || '',
-          token_api: existingConfig.token_api || '',
-          dominio_api: existingConfig.dominio_api || '',
-          id_loja: selectedStore.id
-        })
-        setConnectionStatus('success')
-        
-        toast({
-          title: "Configuração carregada",
-          description: "Configuração Shopify existente foi carregada automaticamente",
-          variant: "default"
-        })
-      }
-
-      // Buscar configurações de checkout existentes
-      const checkoutResponse = await fetch(`/api/shopify/config?id_loja=${selectedStore.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (checkoutResponse.ok) {
-        const checkoutData = await checkoutResponse.json()
-        if (checkoutData.checkout_configured && checkoutData.config) {
-          setSettings({
-            theme: checkoutData.config.Tema || 'default',
-            logo: checkoutData.config.Logo || '',
-            favicon: checkoutData.config.Favicon || '',
-            cor_barra: checkoutData.config.Corbarra || '#3b82f6',
-            cor_botao: checkoutData.config.Corbotao || '#10b981',
-            contagem_regressiva: checkoutData.config.Contagemregressiva || false,
-            barra_texto: checkoutData.config.BarraTexto || ''
-          })
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar configurações existentes:', error)
-    }
+    // Aqui você carregaria a configuração existente do banco de dados
+    // Por enquanto, vamos simular
   }
 
   const handleConfigChange = (field: keyof ShopifyConfig, value: string) => {
@@ -156,47 +96,12 @@ export default function ShopifyIntegrationPage() {
       return
     }
 
-    if (!selectedStore) {
-      toast({
-        title: "Erro",
-        description: "Selecione uma loja primeiro",
-        variant: "destructive"
-      })
-      return
-    }
-
     setTestingConnection(true)
     
     try {
-      // Primeiro, salvar as credenciais
-      const token = localStorage.getItem('token')
-      if (!token) {
-        toast({
-          title: "Erro",
-          description: "Token de autenticação não encontrado",
-          variant: "destructive"
-        })
-        return
-      }
-
-      // Salvar configuração temporariamente para teste
-      const saveResponse = await fetch('/api/shopify/stores', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...config,
-          id_loja: selectedStore.id
-        })
-      })
-
-      if (!saveResponse.ok) {
-        throw new Error('Erro ao salvar configuração para teste')
-      }
+      // Simular teste de conexão
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // Testar conexão
       const response = await fetch(`/api/shopify/config?domain=${config.dominio_api}`)
       const result = await response.json()
       
@@ -227,39 +132,14 @@ export default function ShopifyIntegrationPage() {
   }
 
   const saveConfiguration = async () => {
-    if (!selectedStore) {
-      toast({
-        title: "Erro",
-        description: "Selecione uma loja primeiro",
-        variant: "destructive"
-      })
-      return
-    }
-
     setLoading(true)
     
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        toast({
-          title: "Erro",
-          description: "Token de autenticação não encontrado",
-          variant: "destructive"
-        })
-        return
-      }
-
       // Salvar configuração da loja Shopify
       const shopifyResponse = await fetch('/api/shopify/stores', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...config,
-          id_loja: selectedStore.id
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
       })
       
       if (!shopifyResponse.ok) {
