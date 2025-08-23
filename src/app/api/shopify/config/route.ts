@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
       success: true,
       configured: true,
       loja_id: lojaShopify.id_loja,
+      id_loja: lojaShopify.id_loja,
       domain: lojaShopify.dominio_api,
       checkout_configured: !!checkout,
       produtos_count: produtosCount,

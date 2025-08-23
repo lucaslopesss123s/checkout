@@ -25,8 +25,24 @@ interface ShopifyCheckoutData {
   subtotal_price: number;
 }
 
+interface CheckoutSettings {
+  theme: string;
+  logo?: string;
+  favicon?: string;
+  cor_barra?: string;
+  cor_botao?: string;
+  contagem_regressiva: boolean;
+  barra_texto?: string;
+}
+
 export default function ShopifyCheckoutPage() {
   const [checkoutData, setCheckoutData] = useState<ShopifyCheckoutData | null>(null);
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
+    theme: 'default',
+    cor_barra: '#0a101a',
+    cor_botao: '#10b981',
+    contagem_regressiva: false
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -60,6 +76,39 @@ export default function ShopifyCheckoutPage() {
   });
 
   const [addressLoaded, setAddressLoaded] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lojaId, setLojaId] = useState<string | null>(null);
+  const [primeiraEtapaCompleta, setPrimeiraEtapaCompleta] = useState(false);
+
+  // Função para carregar configurações de checkout
+  const loadCheckoutSettings = async (storeDomain: string) => {
+    try {
+      // Primeiro buscar a loja pelo domínio
+      const lojaResponse = await fetch(`/api/shopify/config?domain=${encodeURIComponent(storeDomain)}`);
+      if (lojaResponse.ok) {
+        const lojaData = await lojaResponse.json();
+        if (lojaData.configured && lojaData.id_loja) {
+          // Buscar configurações da loja_config usando API pública
+          const configResponse = await fetch(`/api/checkout-config?id_loja=${lojaData.id_loja}`);
+          if (configResponse.ok) {
+            const configData = await configResponse.json();
+            if (configData.success && configData.config) {
+              setCheckoutSettings(prev => ({
+                ...prev,
+                cor_barra: configData.config.cor_tema || '#0a101a',
+                cor_botao: configData.config.cor_botao || '#10b981',
+                logo: configData.config.logo,
+                barra_texto: configData.config.aviso
+              }));
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações de checkout:', error);
+    }
+  };
 
   useEffect(() => {
     // Processar dados da sessão via URL
@@ -88,6 +137,15 @@ export default function ShopifyCheckoutPage() {
         };
         
         setCheckoutData(mappedData);
+        
+        // Carregar configurações de checkout
+        loadCheckoutSettings(decodedData.shop_domain);
+        
+        // Armazenar dados da sessão para salvar carrinho
+        setSessionId(sessionData);
+        if (decodedData.loja_id) {
+          setLojaId(decodedData.loja_id);
+        }
         
         // Preencher dados do cliente se disponíveis
         if (decodedData.customer) {
@@ -122,21 +180,193 @@ export default function ShopifyCheckoutPage() {
           total_price: 99.90,
           subtotal_price: 99.90
         });
+        
+        // Gerar sessionId e lojaId para teste
+        const testSessionId = 'test-session-' + Date.now();
+        const testLojaId = '5d38b556-cb47-4493-8363-4b655b416df9'; // ID da loja de teste
+        
+        setSessionId(testSessionId);
+        setLojaId(testLojaId);
+        
+        console.log('Modo teste: sessionId e lojaId definidos', { testSessionId, testLojaId });
+        
         setLoading(false);
       }, 1000);
     }
   }, []);
 
+  // useEffect para marcar carrinho como abandonado quando usuário sair da página
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (sessionId && lojaId && (customerData.email || customerData.telephone)) {
+        // Usar navigator.sendBeacon para garantir que a requisição seja enviada
+        const data = JSON.stringify({
+          session_id: sessionId,
+          id_loja: lojaId,
+          status: 'abandonado'
+        });
+        
+        navigator.sendBeacon('/api/carrinho', new Blob([data], { type: 'application/json' }));
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && sessionId && lojaId && (customerData.email || customerData.telephone)) {
+        // Marcar como abandonado quando a aba fica oculta
+        fetch('/api/carrinho', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            id_loja: lojaId,
+            status: 'abandonado'
+          })
+        }).catch(error => console.error('Erro ao marcar carrinho como abandonado:', error));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [sessionId, lojaId, customerData.email, customerData.telephone]);
+
+  // Função para salvar carrinho
+  const saveCarrinho = async (primeiraEtapa = false) => {
+    if (!checkoutData || !lojaId) {
+      console.log('saveCarrinho: Dados insuficientes', { checkoutData: !!checkoutData, lojaId });
+      return;
+    }
+
+    try {
+      const carrinhoData = {
+        id_loja: lojaId,
+        session_id: sessionId,
+        nome: customerData.name || null,
+        email: customerData.email || null,
+        telefone: customerData.telephone || null,
+        cpf: customerData.document || null,
+        cep: addressData.zipCode || null,
+        endereco: addressData.street || null,
+        numero: addressData.number || null,
+        complemento: addressData.complement || null,
+        bairro: addressData.neighborhood || null,
+        cidade: addressData.city || null,
+        estado: addressData.state || null,
+        itens: checkoutData.products.map(product => ({
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          quantity: product.quantity,
+          image: product.image,
+          variant_title: product.variant_title
+        })),
+        valor_total: checkoutData.total_price,
+        metodo_pagamento: paymentData.method || null,
+        ip_cliente: null, // Pode ser obtido do servidor
+        user_agent: navigator.userAgent,
+        primeira_etapa_completada: primeiraEtapa
+      };
+
+      console.log('saveCarrinho: Enviando dados', {
+        email: carrinhoData.email,
+        telefone: carrinhoData.telefone,
+        nome: carrinhoData.nome,
+        session_id: carrinhoData.session_id,
+        id_loja: carrinhoData.id_loja
+      });
+
+      const response = await fetch('/api/carrinho', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(carrinhoData)
+      });
+
+      const result = await response.json();
+      console.log('saveCarrinho: Resposta da API', result);
+
+      if (!response.ok) {
+        console.error('saveCarrinho: Erro na resposta', result);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar carrinho:', error);
+    }
+  };
+
+  // Função para formatar telefone (XX) XXXXX-XXXX
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    
+    if (numbers.length === 0) return '';
+    if (numbers.length <= 2) return `(${numbers}`;
+    if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 11) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
+  // Função para formatar CPF XXX.XXX.XXX-XX
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    
+    if (numbers.length === 0) return '';
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+    if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+    if (numbers.length <= 11) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9)}`;
+    
+    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+  };
+
   const handleCustomerChange = (field: string, value: string | boolean) => {
-    setCustomerData(prev => ({ ...prev, [field]: value }));
+    console.log('handleCustomerChange:', { field, value });
+    
+    let formattedValue = value;
+    
+    // Aplicar máscaras de formatação
+    if (typeof value === 'string') {
+      if (field === 'telephone') {
+        formattedValue = formatPhone(value);
+      } else if (field === 'document') {
+        formattedValue = formatCPF(value);
+      }
+    }
+    
+    setCustomerData(prev => ({ ...prev, [field]: formattedValue }));
+    
+    // Salvar carrinho sempre que qualquer campo for alterado (com debounce)
+    if (formattedValue && typeof formattedValue === 'string' && formattedValue.trim() !== '') {
+      console.log('handleCustomerChange: Salvando carrinho para campo:', field);
+      setTimeout(() => saveCarrinho(), 500);
+    }
+    
+    // Verificar se a primeira etapa foi completada (nome e email/telefone)
+    const updatedData = { ...customerData, [field]: formattedValue };
+    const etapaCompleta = updatedData.name && (updatedData.email || updatedData.telephone);
+    
+    if (etapaCompleta && !primeiraEtapaCompleta) {
+      console.log('handleCustomerChange: Primeira etapa completada');
+      setPrimeiraEtapaCompleta(true);
+    }
   };
 
   const handleAddressChange = (field: string, value: string | boolean) => {
     setAddressData(prev => ({ ...prev, [field]: value }));
+    // Salvar carrinho sempre que dados de endereço mudarem
+    setTimeout(() => saveCarrinho(), 500); // Debounce para evitar muitas chamadas
   };
 
   const handlePaymentChange = (field: string, value: string) => {
     setPaymentData(prev => ({ ...prev, [field]: value }));
+    // Salvar carrinho sempre que dados de pagamento mudarem
+    setTimeout(() => saveCarrinho(), 500); // Debounce para evitar muitas chamadas
   };
 
   const handleCepChange = async (cep: string) => {
@@ -198,6 +428,26 @@ export default function ShopifyCheckoutPage() {
       if (response.ok) {
         const result = await response.json();
         console.log('Checkout processado:', result);
+        
+        // Atualizar status do carrinho para 'convertido' quando compra for finalizada
+        if (sessionId && lojaId) {
+          try {
+            await fetch('/api/carrinho', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                session_id: sessionId,
+                id_loja: lojaId,
+                status: 'convertido'
+              })
+            });
+          } catch (error) {
+            console.error('Erro ao atualizar status do carrinho:', error);
+          }
+        }
+        
         // Redirecionar para página de sucesso ou processar pagamento
       } else {
         const errorData = await response.json();
@@ -257,10 +507,15 @@ export default function ShopifyCheckoutPage() {
         </div>
       </div>
 
-      {/* Barra azul com texto */}
-      <div className="bg-blue-600 text-white">
+      {/* Barra com cor personalizada */}
+      <div 
+        className="text-white"
+        style={{ backgroundColor: checkoutSettings.cor_barra || '#0a101a' }}
+      >
         <div className="container mx-auto px-4 py-3 text-center">
-          <span className="text-sm font-medium">Confirme seus dados abaixo.</span>
+          <span className="text-sm font-medium">
+            {checkoutSettings.barra_texto || 'Confirme seus dados abaixo.'}
+          </span>
         </div>
       </div>
 
@@ -273,9 +528,15 @@ export default function ShopifyCheckoutPage() {
               <Card className="max-w-[650px]">
                 <CardContent className="p-6">
                   <div className="flex items-center mb-4">
-                    <div className="qtde text-center bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3">
-                      1
-                    </div>
+                    <div 
+                       className="qtde text-center text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 cursor-pointer" 
+                       style={{ 
+                         backgroundColor: checkoutSettings.cor_barra,
+                         border: selectedElement === 'element1' ? `2px solid ${checkoutSettings.cor_barra}` : 'none',
+                         boxShadow: selectedElement === 'element1' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                       }}
+                       onClick={() => setSelectedElement(selectedElement === 'element1' ? null : 'element1')}
+                     >1</div>
                     <h3 className="text-lg font-semibold text-gray-800">Identificação</h3>
                   </div>
                   
@@ -298,7 +559,7 @@ export default function ShopifyCheckoutPage() {
                       <Input
                         id="telephone"
                         type="tel"
-                        placeholder="(99) 99999-9999"
+                        placeholder="(11) 99999-9999"
                         value={customerData.telephone}
                         onChange={(e) => handleCustomerChange('telephone', e.target.value)}
                         className="w-full"
@@ -326,7 +587,7 @@ export default function ShopifyCheckoutPage() {
                       <Input
                         id="document"
                         type="text"
-                        placeholder="123.456.789-12"
+                        placeholder="000.000.000-00"
                         value={customerData.document}
                         onChange={(e) => handleCustomerChange('document', e.target.value)}
                         className="w-full"
@@ -341,9 +602,15 @@ export default function ShopifyCheckoutPage() {
               <Card className="max-w-[650px]">
                 <CardContent className="p-6">
                   <div className="flex items-center mb-4">
-                    <div className="qtde text-center bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3">
-                      2
-                    </div>
+                    <div 
+                       className="qtde text-center text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 cursor-pointer" 
+                       style={{ 
+                         backgroundColor: checkoutSettings.cor_barra,
+                         border: selectedElement === 'element2' ? `2px solid ${checkoutSettings.cor_barra}` : 'none',
+                         boxShadow: selectedElement === 'element2' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                       }}
+                       onClick={() => setSelectedElement(selectedElement === 'element2' ? null : 'element2')}
+                     >2</div>
                     <h3 className="text-lg font-semibold text-gray-800">Entrega</h3>
                   </div>
                   
@@ -531,7 +798,15 @@ export default function ShopifyCheckoutPage() {
                 <Card className="max-w-[650px]">
                   <CardContent className="p-6">
                     <div className="flex items-center mb-4">
-                      <div className="qtde text-center bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3">3</div>
+                      <div 
+                         className="qtde text-center text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 cursor-pointer" 
+                         style={{ 
+                           backgroundColor: checkoutSettings.cor_barra,
+                           border: selectedElement === 'element3' ? `2px solid ${checkoutSettings.cor_barra}` : 'none',
+                           boxShadow: selectedElement === 'element3' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                         }}
+                         onClick={() => setSelectedElement(selectedElement === 'element3' ? null : 'element3')}
+                       >3</div>
                       <h3 className="text-lg font-semibold text-gray-800">Pagamento</h3>
                     </div>
                     
@@ -540,10 +815,22 @@ export default function ShopifyCheckoutPage() {
                       <div className="flex space-x-4 mb-4">
                         {/* Opção Cartão */}
                         <div 
-                          className={`flex items-center justify-center w-[100px] h-[57px] border rounded-lg cursor-pointer ${
-                            paymentData.method === 'card' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'
-                          }`}
-                          onClick={() => handlePaymentChange('method', 'card')}
+                           className={`flex items-center justify-center w-[100px] h-[57px] border rounded-lg cursor-pointer`}
+                           style={{
+                             backgroundColor: paymentData.method === 'card' ? `${checkoutSettings.cor_barra}20` : 'white',
+                             borderColor: paymentData.method === 'card' ? checkoutSettings.cor_barra : '#e5e7eb',
+                             border: selectedElement === 'input-card' ? `3px solid ${checkoutSettings.cor_barra}` : `1px solid ${paymentData.method === 'card' ? checkoutSettings.cor_barra : '#e5e7eb'}`,
+                             boxShadow: selectedElement === 'input-card' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                           }}
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (selectedElement === 'input-card') {
+                               setSelectedElement(null);
+                             } else {
+                               setSelectedElement('input-card');
+                               handlePaymentChange('method', 'card');
+                             }
+                           }}
                         >
                           <svg width="32" height="23" viewBox="0 0 32 23" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M21.9995 15.3532C21.3367 15.3532 20.7995 15.8886 20.7995 16.5491C20.7995 17.2095 21.3367 17.7449 21.9995 17.7449H25.9995C26.6622 17.7449 27.1995 17.2095 27.1995 16.5491C27.1995 15.8886 26.6622 15.3532 25.9995 15.3532H21.9995ZM3.66667 0.205811C1.64162 0.205811 0 1.84175 0 3.85979V19.1401C0 21.1581 1.64162 22.794 3.66667 22.794H28.3333C30.3584 22.794 32 21.1581 32 19.1401V3.85979C32 1.84175 30.3584 0.205811 28.3333 0.205811H3.66667ZM2 19.1401V8.84249H30V19.1401C30 20.0574 29.2538 20.801 28.3333 20.801H3.66667C2.74619 20.801 2 20.0574 2 19.1401ZM2 6.84941V3.85979C2 2.9425 2.74619 2.19889 3.66667 2.19889H28.3333C29.2538 2.19889 30 2.9425 30 3.85979V6.84941H2Z" fill="#5B8DE8"/>
@@ -552,10 +839,22 @@ export default function ShopifyCheckoutPage() {
 
                         {/* Opção PIX */}
                         <div 
-                          className={`flex items-center justify-center w-[100px] h-[57px] border rounded-lg cursor-pointer ${
-                            paymentData.method === 'pix' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'
-                          }`}
-                          onClick={() => handlePaymentChange('method', 'pix')}
+                           className={`flex items-center justify-center w-[100px] h-[57px] border rounded-lg cursor-pointer`}
+                           style={{
+                             backgroundColor: paymentData.method === 'pix' ? `${checkoutSettings.cor_barra}20` : 'white',
+                             borderColor: paymentData.method === 'pix' ? checkoutSettings.cor_barra : '#e5e7eb',
+                             border: selectedElement === 'input-pix' ? `3px solid ${checkoutSettings.cor_barra}` : `1px solid ${paymentData.method === 'pix' ? checkoutSettings.cor_barra : '#e5e7eb'}`,
+                             boxShadow: selectedElement === 'input-pix' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                           }}
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (selectedElement === 'input-pix') {
+                               setSelectedElement(null);
+                             } else {
+                               setSelectedElement('input-pix');
+                               handlePaymentChange('method', 'pix');
+                             }
+                           }}
                         >
                           <svg width="56" height="21" viewBox="0 0 56 21" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <g clipPath="url(#clip0_1193_2161)">
@@ -673,11 +972,30 @@ export default function ShopifyCheckoutPage() {
                     )}
 
                     <Button 
-                      type="submit" 
-                      className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-base"
-                    >
-                      FINALIZAR COMPRA
-                    </Button>
+                       type="submit" 
+                       className="w-full mt-6 text-white font-semibold py-3 text-base cursor-pointer"
+                       style={{ 
+                         backgroundColor: checkoutSettings.cor_botao,
+                         borderColor: checkoutSettings.cor_botao,
+                         border: selectedElement === 'button' ? `3px solid ${checkoutSettings.cor_barra}` : `1px solid ${checkoutSettings.cor_botao}`,
+                         boxShadow: selectedElement === 'button' ? `0 0 0 2px ${checkoutSettings.cor_barra}40` : 'none'
+                       }}
+                       onMouseEnter={(e) => {
+                         const target = e.target as HTMLElement;
+                         target.style.backgroundColor = `${checkoutSettings.cor_botao}dd`;
+                       }}
+                       onMouseLeave={(e) => {
+                         const target = e.target as HTMLElement;
+                         target.style.backgroundColor = checkoutSettings.cor_botao || '#10b981';
+                       }}
+                       onClick={(e) => {
+                         e.preventDefault();
+                         setSelectedElement(selectedElement === 'button' ? null : 'button');
+                       }}
+                       disabled={!addressLoaded}
+                     >
+                       Finalizar Compra
+                     </Button>
                   </CardContent>
                 </Card>
               )}

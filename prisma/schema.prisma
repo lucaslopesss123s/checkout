@@ -222,4 +222,55 @@ model Loja_admin {
   Nome      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  config    Loja_config?
+}
+
+// 15 - Loja_config (configurações da loja)
+model Loja_config {
+  id        String   @id @default(uuid())
+  id_loja   String   @unique
+  loja      Loja_admin @relation(fields: [id_loja], references: [id], onDelete: Cascade)
+  logo      String?
+  cor_tema  String?
+  cor_botao String?
+  aviso     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 16 - Carrinho (carrinhos abandonados)
+model Carrinho {
+  id                String   @id @default(uuid())
+  id_loja           String
+  // Dados do cliente
+  nome              String?
+  email             String?
+  telefone          String?
+  cpf               String?
+  cep               String?
+  endereco          String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  estado            String?
+  // Dados do carrinho
+  itens             Json     // Array de objetos com produtos e quantidades
+  valor_total       Float?
+  valor_frete       Float?
+  metodo_pagamento  String?
+  status            String   @default("iniciado") // iniciado, abandonado, convertido
+  session_id        String?  // Para identificar sessão única
+  ip_cliente        String?
+  user_agent        String?
+  // Timestamps
+  primeira_etapa_em DateTime? // Quando completou identificação
+  ultima_atividade  DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([id_loja])
+  @@index([status])
+  @@index([session_id])
+  @@index([email])
 }

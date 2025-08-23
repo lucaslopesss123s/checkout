@@ -11,21 +11,15 @@ import { useStore } from "@/contexts/store-context"
 
 interface AbandonedCart {
   id: string
-  customerEmail?: string
-  customerName?: string
-  items: {
-    id: string
-    quantity: number
-    price: number
-    product: {
-      name: string
-      image?: string
-    }
-  }[]
-  total: number
-  abandonedAt: string
-  lastActivity: string
-  recoveryEmailSent: boolean
+  nome?: string
+  email?: string
+  telefone?: string
+  valor_total?: number
+  itens: any[] // Array de produtos do carrinho
+  status: string
+  primeira_etapa_em?: string
+  ultima_atividade: string
+  createdAt: string
 }
 
 export default function CarrinhosAbandonadosPage() {
@@ -45,58 +39,32 @@ export default function CarrinhosAbandonadosPage() {
     }
 
     try {
-      // Por enquanto, vamos simular dados de carrinhos abandonados
-      // Em uma implementação real, você criaria uma API específica para isso
-      const mockData: AbandonedCart[] = [
-        {
-          id: "cart_001",
-          customerEmail: "cliente@email.com",
-          customerName: "João Silva",
-          items: [
-            {
-              id: "item_1",
-              quantity: 2,
-              price: 99.90,
-              product: {
-                name: "Produto Exemplo 1"
-              }
-            }
-          ],
-          total: 199.80,
-          abandonedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 horas atrás
-          lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          recoveryEmailSent: false
-        },
-        {
-          id: "cart_002",
-          customerEmail: "maria@email.com",
-          customerName: "Maria Santos",
-          items: [
-            {
-              id: "item_2",
-              quantity: 1,
-              price: 149.90,
-              product: {
-                name: "Produto Exemplo 2"
-              }
-            },
-            {
-              id: "item_3",
-              quantity: 3,
-              price: 29.90,
-              product: {
-                name: "Produto Exemplo 3"
-              }
-            }
-          ],
-          total: 239.60,
-          abandonedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 dia atrás
-          lastActivity: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          recoveryEmailSent: true
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.error('Token de autenticação não encontrado')
+        setLoading(false)
+        return
+      }
+
+      // Buscar carrinhos abandonados da API
+      const response = await fetch(`/api/carrinho?id_loja=${selectedStore.id}&status=abandonado&page=1&limit=50`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      ]
-      
-      setAbandonedCarts(mockData)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setAbandonedCarts(data.carrinhos)
+        } else {
+          console.error('Erro ao buscar carrinhos:', data.error)
+          setAbandonedCarts([])
+        }
+      } else {
+        console.error('Erro na requisição:', response.status)
+        setAbandonedCarts([])
+      }
     } catch (error) {
       console.error('Erro ao buscar carrinhos abandonados:', error)
     } finally {
@@ -105,9 +73,9 @@ export default function CarrinhosAbandonadosPage() {
   }
 
   const filteredCarts = abandonedCarts.filter(cart =>
-    cart.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cart.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cart.items.some(item => item.product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    cart.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cart.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cart.itens.some((item: any) => item.title?.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const formatCurrency = (value: number) => {
@@ -147,7 +115,7 @@ export default function CarrinhosAbandonadosPage() {
   }
 
   const getTotalValue = () => {
-    return filteredCarts.reduce((sum, cart) => sum + cart.total, 0)
+    return filteredCarts.reduce((sum, cart) => sum + (cart.valor_total || 0), 0)
   }
 
   if (loading) {
@@ -211,15 +179,15 @@ export default function CarrinhosAbandonadosPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Emails Enviados</CardTitle>
+            <CardTitle className="text-sm font-medium">Com Identificação</CardTitle>
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {filteredCarts.filter(cart => cart.recoveryEmailSent).length}
+              {filteredCarts.filter(cart => cart.primeira_etapa_em).length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Emails de recuperação
+              Completaram identificação
             </p>
           </CardContent>
         </Card>
@@ -273,37 +241,37 @@ export default function CarrinhosAbandonadosPage() {
                   <TableRow key={cart.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{cart.customerName || 'Cliente Anônimo'}</div>
-                        <div className="text-sm text-muted-foreground">{cart.customerEmail}</div>
+                        <div className="font-medium">{cart.nome || 'Cliente Anônimo'}</div>
+                        <div className="text-sm text-muted-foreground">{cart.email || cart.telefone || 'Sem contato'}</div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="max-w-[200px]">
-                        {cart.items.map((item, index) => (
-                          <div key={item.id} className="text-sm">
-                            {item.quantity}x {item.product.name}
-                            {index < cart.items.length - 1 && <br />}
+                        {cart.itens.map((item: any, index: number) => (
+                          <div key={index} className="text-sm">
+                            {item.quantity}x {item.title}
+                            {index < cart.itens.length - 1 && <br />}
                           </div>
                         ))}
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(cart.total)}
+                      {formatCurrency(cart.valor_total || 0)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatTimeAgo(cart.abandonedAt)}</span>
+                        <span className="text-sm">{formatTimeAgo(cart.ultima_atividade)}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {cart.recoveryEmailSent ? (
+                      {cart.primeira_etapa_em ? (
                         <Badge className="bg-green-100 text-green-800 border-green-200">
-                          Enviado
+                          Identificado
                         </Badge>
                       ) : (
                         <Badge variant="outline">
-                          Não enviado
+                          Sem identificação
                         </Badge>
                       )}
                     </TableCell>
@@ -312,7 +280,7 @@ export default function CarrinhosAbandonadosPage() {
                         <Button variant="ghost" size="sm">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!cart.recoveryEmailSent && (
+                        {cart.email && (
                           <Button 
                             variant="ghost" 
                             size="sm"

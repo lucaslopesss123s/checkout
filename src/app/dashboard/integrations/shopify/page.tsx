@@ -21,8 +21,7 @@ import {
   CheckCircle, 
   AlertCircle,
   Zap,
-  Globe,
-  Palette
+  Globe
 } from 'lucide-react'
 import { useStore } from '@/contexts/store-context'
 import { useToast } from '@/hooks/use-toast'
@@ -453,14 +452,10 @@ export default function ShopifyIntegrationPage() {
       </div>
 
       <Tabs defaultValue="config" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="config" className="flex items-center">
             <Settings className="mr-2 h-4 w-4" />
             Configuração
-          </TabsTrigger>
-          <TabsTrigger value="checkout" className="flex items-center">
-            <Palette className="mr-2 h-4 w-4" />
-            Checkout
           </TabsTrigger>
           <TabsTrigger value="script" className="flex items-center">
             <Code className="mr-2 h-4 w-4" />
@@ -563,70 +558,7 @@ export default function ShopifyIntegrationPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="checkout" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Palette className="mr-2 h-5 w-5" />
-                Personalização do Checkout
-              </CardTitle>
-              <CardDescription>
-                Customize a aparência do seu checkout personalizado
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="cor_barra">Cor da Barra Superior</Label>
-                  <Input
-                    id="cor_barra"
-                    type="color"
-                    value={settings.cor_barra}
-                    onChange={(e) => handleSettingsChange('cor_barra', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cor_botao">Cor dos Botões</Label>
-                  <Input
-                    id="cor_botao"
-                    type="color"
-                    value={settings.cor_botao}
-                    onChange={(e) => handleSettingsChange('cor_botao', e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="logo">URL do Logo</Label>
-                <Input
-                  id="logo"
-                  placeholder="https://exemplo.com/logo.png"
-                  value={settings.logo || ''}
-                  onChange={(e) => handleSettingsChange('logo', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="barra_texto">Texto da Barra Superior</Label>
-                <Input
-                  id="barra_texto"
-                  placeholder="Frete grátis para todo o Brasil!"
-                  value={settings.barra_texto || ''}
-                  onChange={(e) => handleSettingsChange('barra_texto', e.target.value)}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="contagem_regressiva"
-                  checked={settings.contagem_regressiva}
-                  onCheckedChange={(checked) => handleSettingsChange('contagem_regressiva', checked)}
-                />
-                <Label htmlFor="contagem_regressiva">Ativar Contagem Regressiva</Label>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value="script" className="space-y-6">
           <Card>
