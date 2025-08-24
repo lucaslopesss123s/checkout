@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw } from 'lucide-react'
+import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface Domain {
@@ -461,23 +461,78 @@ export default function DominioPage() {
                   </div>
                   
                   {domain.status === 'verified' && (
-                    <div className="bg-green-50 border border-green-200 rounded p-3">
-                      <div className="flex items-center gap-2 text-green-800 mb-2">
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="font-medium">Domínio verificado com sucesso!</span>
+                    <div className="space-y-4">
+                      <div className="bg-green-50 border border-green-200 rounded p-3">
+                        <div className="flex items-center gap-2 text-green-800 mb-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="font-medium">Domínio verificado com sucesso!</span>
+                        </div>
+                        <p className="text-sm text-green-700">
+                          Seu checkout está disponível em: 
+                          <a 
+                            href={`https://checkout.${domain.domain}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="font-medium underline ml-1 inline-flex items-center gap-1"
+                          >
+                            checkout.{domain.domain}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </p>
                       </div>
-                      <p className="text-sm text-green-700">
-                        Seu checkout está disponível em: 
-                        <a 
-                          href={`https://checkout.${domain.domain}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="font-medium underline ml-1 inline-flex items-center gap-1"
-                        >
-                          checkout.{domain.domain}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </p>
+                      
+                      {/* Script de Integração Shopify */}
+                      <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                        <div className="flex items-center gap-2 text-blue-800 mb-3">
+                          <Code className="h-4 w-4" />
+                          <span className="font-medium">Script de Integração Shopify</span>
+                        </div>
+                        <p className="text-sm text-blue-700 mb-3">
+                          Use este script personalizado em sua loja Shopify para redirecionar o checkout para seu domínio personalizado.
+                        </p>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-sm font-medium text-blue-800">URL do Script</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <code className="bg-white px-2 py-1 rounded text-sm border flex-1 text-blue-900">
+                                {`${window.location.origin}/api/shopify/script?domain=${domain.domain}`}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(`${window.location.origin}/api/shopify/script?domain=${domain.domain}`)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-sm font-medium text-blue-800">Código para adicionar no theme.liquid</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <code className="bg-white px-2 py-1 rounded text-sm border flex-1 text-blue-900 font-mono">
+                                {`<script src="${window.location.origin}/api/shopify/script?domain=${domain.domain}"></script>`}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(`<script src="${window.location.origin}/api/shopify/script?domain=${domain.domain}"></script>`)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded mt-3">
+                          <p><strong>Instruções:</strong></p>
+                          <p>1. Acesse Admin > Temas > Ações > Editar código</p>
+                          <p>2. Abra o arquivo theme.liquid</p>
+                          <p>3. Adicione o código acima antes da tag &lt;/body&gt;</p>
+                          <p>4. Salve as alterações</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                   
