@@ -96,6 +96,64 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Dados do checkout:', { customerData, addressData, paymentData });
+    
+    try {
+      // Preparar dados do pedido
+      const pedidoData = {
+        id_loja: 1, // ID da loja padrão
+        nome: customerData.name,
+        email: customerData.email,
+        telefone: customerData.phone,
+        cep: addressData.zipCode,
+        endereco: addressData.street,
+        numero: addressData.number,
+        complemento: addressData.complement,
+        bairro: addressData.neighborhood,
+        cidade: addressData.city,
+        estado: addressData.state,
+        itens: [
+          {
+            nome: '[COMBO] 6X Happy Hair + 1X Pote de Melatonina + 1X Pote de Colágeno',
+            quantidade: 1,
+            preco: 167.90
+          }
+        ],
+        valor_total: 167.90,
+        metodo_pagamento: paymentData.method === 'card' ? 'Cartão de Crédito' : 'PIX',
+        carrinho_id: params.id // ID do carrinho para remover dos abandonados
+      };
+
+      // Criar o pedido
+      const response = await fetch('/api/pedidos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pedidoData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('Pedido criado com sucesso:', result.pedido);
+        
+        // Redirecionar para página de sucesso ou mostrar mensagem
+        if (paymentData.method === 'pix') {
+          alert(`Pedido finalizado! Número do pedido: ${result.pedido.numero_pedido}\n\nVocê receberá o código PIX por email.`);
+        } else {
+          alert(`Pedido finalizado com sucesso! Número do pedido: ${result.pedido.numero_pedido}`);
+        }
+        
+        // Aqui você pode redirecionar para uma página de confirmação
+        // window.location.href = '/obrigado';
+      } else {
+        console.error('Erro ao criar pedido:', result.error);
+        alert('Erro ao finalizar pedido. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao processar pedido:', error);
+      alert('Erro ao finalizar pedido. Tente novamente.');
+    }
   };
 
   return (

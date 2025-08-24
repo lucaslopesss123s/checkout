@@ -429,22 +429,14 @@ export default function ShopifyCheckoutPage() {
         const result = await response.json();
         console.log('Checkout processado:', result);
         
-        // Atualizar status do carrinho para 'convertido' quando compra for finalizada
+        // Deletar carrinho quando compra for finalizada
         if (sessionId && lojaId) {
           try {
-            await fetch('/api/carrinho', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                session_id: sessionId,
-                id_loja: lojaId,
-                status: 'convertido'
-              })
+            await fetch(`/api/carrinho?session_id=${sessionId}&id_loja=${lojaId}`, {
+              method: 'DELETE'
             });
           } catch (error) {
-            console.error('Erro ao atualizar status do carrinho:', error);
+            console.error('Erro ao deletar carrinho:', error);
           }
         }
         

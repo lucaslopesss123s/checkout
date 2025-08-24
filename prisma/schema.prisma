@@ -97,13 +97,44 @@ model Loja_Shopify {
   updatedAt     DateTime @updatedAt
 }
 
-// 4 - Pedidos
+// 4 - Pedidos (pedidos realizados/finalizados)
 model Pedidos {
-  id        String   @id @default(uuid())
-  status    String   @default("pending")
-  total     Float?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(uuid())
+  id_loja           String
+  // Dados do cliente
+  nome              String?
+  email             String?
+  telefone          String?
+  cpf               String?
+  cep               String?
+  endereco          String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  estado            String?
+  // Dados do pedido
+  itens             Json     // Array de objetos com produtos e quantidades
+  valor_total       Float?
+  valor_frete       Float?
+  metodo_pagamento  String?  // cartao_credito, pix, boleto
+  status            String   @default("realizado") // realizado, processando, enviado, entregue, cancelado
+  session_id        String?  // Para identificar sessão única
+  ip_cliente        String?
+  user_agent        String?
+  // Dados específicos do pedido
+  numero_pedido     String?  // Número único do pedido
+  observacoes       String?  // Observações do cliente
+  // Timestamps
+  finalizado_em     DateTime @default(now()) // Quando o pedido foi finalizado
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([id_loja])
+  @@index([status])
+  @@index([session_id])
+  @@index([email])
+  @@index([numero_pedido])
 }
 
 // 5 - Loja_Landingpage
@@ -259,7 +290,6 @@ model Carrinho {
   valor_total       Float?
   valor_frete       Float?
   metodo_pagamento  String?
-  status            String   @default("iniciado") // iniciado, abandonado, convertido
   session_id        String?  // Para identificar sessão única
   ip_cliente        String?
   user_agent        String?
@@ -270,7 +300,6 @@ model Carrinho {
   updatedAt         DateTime @updatedAt
 
   @@index([id_loja])
-  @@index([status])
   @@index([session_id])
   @@index([email])
 }

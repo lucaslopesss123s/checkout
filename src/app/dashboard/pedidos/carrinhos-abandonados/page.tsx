@@ -16,7 +16,6 @@ interface AbandonedCart {
   telefone?: string
   valor_total?: number
   itens: any[] // Array de produtos do carrinho
-  status: string
   primeira_etapa_em?: string
   ultima_atividade: string
   createdAt: string
@@ -29,15 +28,13 @@ export default function CarrinhosAbandonadosPage() {
   const { selectedStore } = useStore()
 
   useEffect(() => {
+    console.log('Componente montado, carregando dados...')
     fetchAbandonedCarts()
   }, [selectedStore])
 
   const fetchAbandonedCarts = async () => {
-    if (!selectedStore) {
-      setLoading(false)
-      return
-    }
-
+    console.log('fetchAbandonedCarts chamado, selectedStore:', selectedStore)
+    
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -46,17 +43,32 @@ export default function CarrinhosAbandonadosPage() {
         return
       }
 
+      // Buscar todos os carrinhos da loja selecionada (todos são considerados abandonados)
+      const lojaId = selectedStore?.id
+      const url = lojaId 
+        ? `/api/carrinho?id_loja=${lojaId}&page=1&limit=50`
+        : `/api/carrinho?page=1&limit=50`
+      console.log('Fazendo requisição para:', url)
+      
       // Buscar carrinhos abandonados da API
-      const response = await fetch(`/api/carrinho?id_loja=${selectedStore.id}&status=abandonado&page=1&limit=50`, {
+      const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       })
+      
+      console.log('Response status:', response.status)
 
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
-          setAbandonedCarts(data.carrinhos)
+          // Processar os itens que vêm como string JSON
+          const processedCarts = data.carrinhos.map((cart: any) => ({
+            ...cart,
+            itens: typeof cart.itens === 'string' ? JSON.parse(cart.itens || '[]') : cart.itens || []
+          }))
+          setAbandonedCarts(processedCarts)
+          console.log('Carrinhos carregados:', processedCarts.length)
         } else {
           console.error('Erro ao buscar carrinhos:', data.error)
           setAbandonedCarts([])
@@ -72,11 +84,22 @@ export default function CarrinhosAbandonadosPage() {
     }
   }
 
-  const filteredCarts = abandonedCarts.filter(cart =>
-    cart.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cart.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cart.itens.some((item: any) => item.title?.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const filteredCarts = abandonedCarts.filter(cart => {
+    // Se não há termo de busca, mostrar todos os carrinhos
+    if (!searchTerm.trim()) {
+      return true
+    }
+    
+    // Filtrar por termo de busca
+    return (
+      cart.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cart.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cart.itens.some((item: any) => 
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    )
+  })
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -237,7 +260,7 @@ export default function CarrinhosAbandonadosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCarts.map((cart) => (
+                {filteredCarts.length > 0 ? filteredCarts.map((cart) => (
                   <TableRow key={cart.id}>
                     <TableCell>
                       <div>
@@ -292,7 +315,13 @@ export default function CarrinhosAbandonadosPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      Nenhum carrinho abandonado encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}

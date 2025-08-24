@@ -39,8 +39,7 @@ export async function POST(request: NextRequest) {
     const carrinhoExistente = await prisma.carrinho.findFirst({
       where: {
         session_id: session_id,
-        id_loja: id_loja,
-        status: { in: ['iniciado', 'abandonado'] }
+        id_loja: id_loja
       }
     })
 
@@ -93,7 +92,6 @@ export async function POST(request: NextRequest) {
       success: true,
       carrinho: {
         id: carrinho.id,
-        status: carrinho.status,
         primeira_etapa_em: carrinho.primeira_etapa_em
       }
     })
@@ -111,27 +109,23 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id_loja = searchParams.get('id_loja')
-  const status = searchParams.get('status') || 'abandonado'
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
-
-  if (!id_loja) {
-    return NextResponse.json(
-      { error: 'ID da loja é obrigatório' },
-      { status: 400 }
-    )
-  }
 
   try {
     const skip = (page - 1) * limit
 
+    // Criar filtro base - todos os carrinhos são considerados abandonados
+    const whereFilter: any = {}
+    
+    // Adicionar filtro de loja apenas se especificado
+    if (id_loja) {
+      whereFilter.id_loja = id_loja
+    }
+
     const [carrinhos, total] = await Promise.all([
       prisma.carrinho.findMany({
-        where: {
-          id_loja: id_loja,
-          status: status,
-          primeira_etapa_em: { not: null } // Apenas carrinhos que completaram primeira etapa
-        },
+        where: whereFilter,
         orderBy: {
           ultima_atividade: 'desc'
         },
@@ -144,18 +138,13 @@ export async function GET(request: NextRequest) {
           telefone: true,
           valor_total: true,
           itens: true,
-          status: true,
           primeira_etapa_em: true,
           ultima_atividade: true,
           createdAt: true
         }
       }),
       prisma.carrinho.count({
-        where: {
-          id_loja: id_loja,
-          status: status,
-          primeira_etapa_em: { not: null }
-        }
+        where: whereFilter
       })
     ])
 
@@ -179,26 +168,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT - Atualizar status do carrinho (para marcar como convertido ou abandonado)
-export async function PUT(request: NextRequest) {
+// DELETE - Deletar carrinho (usado quando finalizar compra)
+export async function DELETE(request: NextRequest) {
   try {
-    let body
-    
-    // Suportar tanto JSON quanto Blob (sendBeacon)
-    const contentType = request.headers.get('content-type')
-    if (contentType?.includes('application/json')) {
-      body = await request.json()
-    } else {
-      // Para sendBeacon que envia como Blob
-      const text = await request.text()
-      body = JSON.parse(text)
-    }
-    
-    const { carrinho_id, session_id, id_loja, status } = body
+    const { searchParams } = new URL(request.url)
+    const carrinho_id = searchParams.get('carrinho_id')
+    const session_id = searchParams.get('session_id')
+    const id_loja = searchParams.get('id_loja')
 
-    if (!status) {
+    if (!carrinho_id && (!session_id || !id_loja)) {
       return NextResponse.json(
-        { error: 'Status é obrigatório' },
+        { error: 'ID do carrinho ou (session_id + id_loja) são obrigatórios' },
         { status: 400 }
       )
     }
@@ -206,31 +186,22 @@ export async function PUT(request: NextRequest) {
     let carrinho
 
     if (carrinho_id) {
-      // Atualizar por ID do carrinho
-      carrinho = await prisma.carrinho.update({
-        where: { id: carrinho_id },
-        data: {
-          status,
-          ultima_atividade: new Date()
-        }
+      // Deletar por ID do carrinho
+      carrinho = await prisma.carrinho.delete({
+        where: { id: carrinho_id }
       })
-    } else if (session_id && id_loja) {
-      // Atualizar por session_id e id_loja
+    } else {
+      // Deletar por session_id e id_loja
       const carrinhoExistente = await prisma.carrinho.findFirst({
         where: {
-          session_id: session_id,
-          id_loja: id_loja,
-          status: { in: ['iniciado', 'abandonado'] }
+          session_id: session_id!,
+          id_loja: id_loja!
         }
       })
 
       if (carrinhoExistente) {
-        carrinho = await prisma.carrinho.update({
-          where: { id: carrinhoExistente.id },
-          data: {
-            status,
-            ultima_atividade: new Date()
-          }
+        carrinho = await prisma.carrinho.delete({
+          where: { id: carrinhoExistente.id }
         })
       } else {
         return NextResponse.json(
@@ -238,23 +209,15 @@ export async function PUT(request: NextRequest) {
           { status: 404 }
         )
       }
-    } else {
-      return NextResponse.json(
-        { error: 'ID do carrinho ou (session_id + id_loja) são obrigatórios' },
-        { status: 400 }
-      )
     }
 
     return NextResponse.json({
       success: true,
-      carrinho: {
-        id: carrinho.id,
-        status: carrinho.status
-      }
+      message: 'Carrinho deletado com sucesso'
     })
 
   } catch (error) {
-    console.error('Erro ao atualizar status do carrinho:', error)
+    console.error('Erro ao deletar carrinho:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

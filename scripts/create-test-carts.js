@@ -13,7 +13,6 @@ async function createTestCarts() {
       email: 'joao@email.com',
       telefone: '(11) 99999-1111',
       valor_total: 299.90,
-      status: 'iniciado',
       itens: JSON.stringify([
         {
           id: 'prod1',
@@ -38,7 +37,6 @@ async function createTestCarts() {
       email: 'maria@email.com',
       telefone: '(11) 88888-2222',
       valor_total: 89.90,
-      status: 'iniciado',
       itens: JSON.stringify([
         {
           id: 'prod3',
@@ -55,7 +53,6 @@ async function createTestCarts() {
       nome: 'Pedro Costa',
       email: 'pedro@email.com', 
       valor_total: 199.80,
-      status: 'iniciado',
       itens: JSON.stringify([
         {
           id: 'prod4',
@@ -72,7 +69,6 @@ async function createTestCarts() {
       nome: 'Ana Oliveira',
       email: 'ana@email.com',
       valor_total: 129.90,
-      status: 'iniciado',
       itens: JSON.stringify([
         {
           id: 'prod5',
@@ -108,28 +104,6 @@ async function createTestCarts() {
     }
   }
   
-  console.log('\n🔄 Aguardando 2 segundos antes de marcar como abandonados...');
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Marcar carrinhos da loja 1 como abandonados
-  try {
-    const response = await fetch(`${baseUrl}/api/carrinho/marcar-abandonados`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ id_loja: '1' })
-    });
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`\n✅ ${result.processados} carrinhos da loja 1 marcados como abandonados`);
-    } else {
-      console.error('❌ Erro ao marcar carrinhos como abandonados:', response.status);
-    }
-  } catch (error) {
-    console.error('❌ Erro ao marcar carrinhos como abandonados:', error.message);
-  }
   
   console.log('\n🎉 Carrinhos de teste criados! Acesse o dashboard para visualizar.');
   console.log('📊 Dashboard: http://localhost:9002/dashboard/pedidos/carrinhos-abandonados');
