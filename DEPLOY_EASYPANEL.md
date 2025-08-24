@@ -95,6 +95,16 @@ O Dockerfile usa multi-stage build para otimizar o tamanho da imagem:
 - Verifique se todas as dependências estão no `package.json`
 - Confirme se o Prisma client foi gerado
 
+### Erro "Invalid value undefined for datasource db"
+Este erro ocorre quando o Prisma Client não encontra a `DATABASE_URL` durante o build.
+
+**Solução**: O Dockerfile já inclui uma `DATABASE_URL` temporária para o build:
+```dockerfile
+ENV DATABASE_URL="postgresql://temp:temp@temp:5432/temp"
+```
+
+Esta variável é apenas para o build funcionar. A `DATABASE_URL` real deve ser configurada nas variáveis de ambiente do EasyPanel.
+
 ### Erro de Autenticação
 - Verifique `NEXTAUTH_SECRET` e `NEXTAUTH_URL`
 - Confirme se as credenciais Firebase estão corretas
