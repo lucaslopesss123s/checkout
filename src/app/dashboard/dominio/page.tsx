@@ -267,10 +267,10 @@ export default function DominioPage() {
         <CardHeader>
           <CardTitle>Configuração DNS</CardTitle>
           <CardDescription>
-            Siga estas instruções para configurar seu domínio
+            Escolha uma das opções abaixo para configurar seu domínio
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
@@ -278,58 +278,139 @@ export default function DominioPage() {
             </AlertDescription>
           </Alert>
           
-          <div className="space-y-3">
-            <div>
-              <Label className="text-sm font-medium">Tipo de Registro</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="bg-muted px-2 py-1 rounded text-sm">CNAME</code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard('CNAME')}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+          {/* Opção 1: CNAME */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                Opção 1 - CNAME (Recomendado)
+              </Badge>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Tipo de Registro</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">CNAME</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('CNAME')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Nome/Host</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('checkout')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Valor/Destino</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout.lojafacil.com</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('checkout.lojafacil.com')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
             
-            <div>
-              <Label className="text-sm font-medium">Nome/Host</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="bg-muted px-2 py-1 rounded text-sm">checkout</code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard('checkout')}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+            <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded">
+              <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro CNAME:</p>
+              <p className="mt-1">• <strong>Nome:</strong> checkout</p>
+              <p>• <strong>Valor:</strong> checkout.lojafacil.com</p>
+              <p className="mt-2">Resultado: <strong>checkout.meusite.com.br</strong></p>
+            </div>
+          </div>
+          
+          <Separator className="my-6" />
+          
+          {/* Opção 2: Registro A */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                Opção 2 - Registro A
+              </Badge>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Tipo de Registro</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">A</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('A')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Nome/Host</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('checkout')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Valor/IP</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-sm">192.168.1.100</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard('192.168.1.100')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  * IP do servidor - entre em contato com o suporte para obter o IP correto
+                </p>
               </div>
             </div>
             
-            <div>
-              <Label className="text-sm font-medium">Valor/Destino</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="bg-muted px-2 py-1 rounded text-sm">checkout.lojafacil.com</code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard('checkout.lojafacil.com')}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
+            <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
+              <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro A:</p>
+              <p className="mt-1">• <strong>Nome:</strong> checkout</p>
+              <p>• <strong>Valor:</strong> 192.168.1.100 (IP do servidor)</p>
+              <p className="mt-2">Resultado: <strong>checkout.meusite.com.br</strong></p>
             </div>
           </div>
           
-          <Separator />
-          
-          <div className="text-sm text-muted-foreground">
-            <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro CNAME:</p>
-            <p className="mt-1">• <strong>Nome:</strong> checkout</p>
-            <p>• <strong>Valor:</strong> checkout.lojafacil.com</p>
-            <p className="mt-2">Isso permitirá que seus clientes acessem: <strong>checkout.meusite.com.br</strong></p>
-          </div>
+          <Alert className="bg-yellow-50 border-yellow-200">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              <strong>Qual opção escolher?</strong><br/>
+              • <strong>CNAME (Recomendado):</strong> Mais fácil de configurar e mantém a configuração automática<br/>
+              • <strong>Registro A:</strong> Use apenas se seu provedor DNS não suportar CNAME ou por preferência técnica
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 

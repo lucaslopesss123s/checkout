@@ -8,6 +8,12 @@ const resolveCname = promisify(dns.resolveCname)
 const resolve4 = promisify(dns.resolve4)
 const resolveTxt = promisify(dns.resolveTxt)
 
+// IPs válidos do servidor (adicione os IPs reais do seu servidor)
+const VALID_SERVER_IPS = [
+  '192.168.1.100', // IP exemplo - substitua pelo IP real do servidor
+  '10.0.0.1',      // IP exemplo - adicione outros IPs se necessário
+]
+
 // Função para verificar DNS
 async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
   try {
@@ -47,12 +53,27 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
       try {
         const aRecords = await resolve4(fullDomain)
         if (aRecords && aRecords.length > 0) {
-          return {
-            verificado: false,
-            tipo: 'A',
-            valor: aRecords.join(', '),
-            erro: 'Domínio tem registro A, mas é necessário um CNAME apontando para checkout.lojafacil.com',
-            detalhes: `Encontrado registro A: ${aRecords.join(', ')}. Para funcionar corretamente, remova o registro A e crie um CNAME.`
+          console.log(`Registros A encontrados: ${aRecords.join(', ')}`)
+          
+          // Verificar se algum IP aponta para nosso servidor
+          const validIPs = aRecords.filter(ip => VALID_SERVER_IPS.includes(ip))
+          
+          if (validIPs.length > 0) {
+            return {
+              verificado: true,
+              tipo: 'A',
+              valor: aRecords.join(', '),
+              erro: null,
+              detalhes: `Registro A configurado corretamente: ${fullDomain} → ${validIPs.join(', ')}`
+            }
+          } else {
+            return {
+              verificado: false,
+              tipo: 'A',
+              valor: aRecords.join(', '),
+              erro: `Registro A aponta para ${aRecords.join(', ')}, mas deveria apontar para um dos IPs válidos: ${VALID_SERVER_IPS.join(', ')}`,
+              detalhes: 'O registro A existe, mas não aponta para o servidor correto'
+            }
           }
         }
       } catch (aError) {
