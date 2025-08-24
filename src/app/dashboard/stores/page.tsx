@@ -1,21 +1,29 @@
 import { Suspense } from 'react';
 import prisma from '@/lib/prisma';
 
+// Forçar renderização dinâmica para evitar prerender
+export const dynamic = 'force-dynamic';
+
 async function getStores() {
-  // Buscar todas as lojas diretamente do banco de dados
-  const stores = await prisma.store.findMany({
-    include: {
-      user: true,
-      products: {
-        take: 5, // Limitar a 5 produtos por loja
-        orderBy: {
-          createdAt: 'desc',
+  try {
+    // Buscar todas as lojas diretamente do banco de dados
+    const stores = await prisma.store.findMany({
+      include: {
+        user: true,
+        products: {
+          take: 5, // Limitar a 5 produtos por loja
+          orderBy: {
+            createdAt: 'desc',
+          },
         },
       },
-    },
-  });
-  
-  return stores;
+    });
+    
+    return stores;
+  } catch (error) {
+    console.error('Erro ao buscar lojas:', error);
+    return [];
+  }
 }
 
 export default async function StoresPage() {

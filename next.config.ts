@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Desabilitar telemetria para builds mais limpos
-  telemetry: false,
-  
   // Otimizações para produção
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
