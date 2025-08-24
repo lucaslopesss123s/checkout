@@ -178,17 +178,23 @@ model Upssel {
   updatedAt DateTime @updatedAt
 }
 
-// 9 - Frete (adicionando id_loja)
+// 9 - Frete (opções de frete da loja)
 model Frete {
-  id           String   @id @default(uuid())
-  Nome         String
-  valor        Float
-  valorminimo  Float
-  prazominimo  Int
-  prazomaximo  Int
-  id_loja      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  nome                  String   // Nome da opção de frete (ex: "Sedex", "PAC")
+  preco                 Float    // Preço do frete
+  prazo_minimo          Int      // Prazo mínimo de entrega em dias
+  prazo_maximo          Int      // Prazo máximo de entrega em dias
+  ativo                 Boolean  @default(true) // Se a opção está ativa
+  id_loja               String   // ID da loja
+  // Configuração de frete grátis
+  frete_gratis_ativo    Boolean  @default(false) // Se o frete grátis está ativo
+  valor_minimo_gratis   Float?   // Valor mínimo para frete grátis
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([id_loja])
+  @@index([ativo])
 }
 
 // 10 - Adquirentes

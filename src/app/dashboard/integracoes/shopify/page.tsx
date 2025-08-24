@@ -178,129 +178,56 @@ export default function ShopifyIntegrationPage() {
     }
   }
 
-  const generateScript = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'
-    
-    const script = `
-<!-- Script de Integração Shopify - Checkout Personalizado -->
-<script>
-(function() {
-    'use strict';
-    
-    // Configurações da integração
-    const CHECKOUT_API_URL = '${baseUrl}/api/shopify/checkout';
-    const CONFIG_API_URL = '${baseUrl}/api/shopify/config';
-    const SHOP_DOMAIN = '${config.dominio_api}';
-    
-    // Função para obter itens do carrinho
-    async function getCartItems() {
-        try {
-            const response = await fetch('/cart.js');
-            const cart = await response.json();
-            
-            return cart.items.map(item => ({
-                id: item.id.toString(),
-                product_id: item.product_id.toString(),
-                variant_id: item.variant_id.toString(),
-                title: item.product_title,
-                price: (item.price / 100).toFixed(2),
-                quantity: item.quantity,
-                image: item.image,
-                variant_title: item.variant_title
-            }));
-        } catch (error) {
-            console.error('Erro ao obter carrinho:', error);
-            return [];
+  const generateScript = async () => {
+    if (!config.dominio_api) {
+      toast({
+        title: "Erro",
+        description: "Domínio da API é obrigatório para gerar o script",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      // Verificar se há domínio configurado através da API
+      const response = await fetch(`/api/shopify/script?domain=${config.dominio_api}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        
+        if (errorData.requires_domain) {
+          toast({
+            title: "Domínio não configurado",
+            description: "Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba 'Domínio' do dashboard antes de gerar o script de integração.",
+            variant: "destructive"
+          })
+          return
         }
-    }
-    
-    // Função para redirecionar para checkout personalizado
-    async function redirectToCustomCheckout() {
-        try {
-            const cartItems = await getCartItems();
-            
-            if (cartItems.length === 0) {
-                alert('Seu carrinho está vazio!');
-                return;
-            }
-            
-            const checkoutData = {
-                shop_domain: SHOP_DOMAIN,
-                cart_items: cartItems,
-                customer: window.Shopify?.customer || null,
-                currency: window.Shopify?.currency?.active || 'BRL'
-            };
-            
-            const response = await fetch(CHECKOUT_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(checkoutData)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success && result.checkout_url) {
-                window.location.href = result.checkout_url;
-            } else {
-                console.error('Erro no checkout:', result.error);
-                alert('Erro ao processar checkout. Tente novamente.');
-            }
-            
-        } catch (error) {
-            console.error('Erro ao redirecionar:', error);
-            alert('Erro ao processar checkout. Tente novamente.');
-        }
-    }
-    
-    // Interceptar botões de checkout
-    function interceptCheckoutButtons() {
-        const selectors = [
-            '.btn--checkout',
-            '[data-testid="Checkout-button"]',
-            '.cart__checkout-button',
-            '.checkout-button',
-            'input[type="submit"][value*="checkout" i]'
-        ];
         
-        selectors.forEach(selector => {
-            const buttons = document.querySelectorAll(selector);
-            buttons.forEach(button => {
-                if (!button.dataset.customCheckout) {
-                    button.dataset.customCheckout = 'true';
-                    button.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        redirectToCustomCheckout();
-                    });
-                }
-            });
-        });
+        toast({
+          title: "Erro",
+          description: errorData.message || "Erro ao gerar script",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      const scriptData = await response.text()
+      setGeneratedScript(scriptData)
+      
+      toast({
+        title: "Script gerado!",
+        description: "Script de integração gerado com sucesso usando seu domínio personalizado."
+      })
+      
+    } catch (error) {
+      console.error('Erro ao gerar script:', error)
+      toast({
+        title: "Erro",
+        description: "Erro ao gerar script. Tente novamente.",
+        variant: "destructive"
+      })
     }
-    
-    // Inicializar quando DOM estiver pronto
-    function init() {
-        interceptCheckoutButtons();
-        
-        // Observar mudanças no DOM
-        const observer = new MutationObserver(() => {
-            setTimeout(interceptCheckoutButtons, 100);
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-    
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
-</script>
-<!-- Fim do Script de Integração -->`
-    
-    setGeneratedScript(script.trim())
   }
 
   const copyScript = () => {

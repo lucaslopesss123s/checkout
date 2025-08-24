@@ -28,8 +28,15 @@ export async function GET(request: NextRequest) {
     // Criar stream de dados
     const stream = new ReadableStream({
       start(controller) {
+        let isClosed = false
+
         const sendUpdate = async () => {
           try {
+            // Verificar se o controller ainda está aberto
+            if (isClosed) {
+              return
+            }
+
             // Buscar sessões ativas dos últimos 30 minutos
             const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
             
@@ -59,17 +66,27 @@ export async function GET(request: NextRequest) {
               ultima_atividade: session.ultima_atividade
             }))
 
-            // Enviar dados via SSE
-            const data = JSON.stringify({
-              type: 'sessions_update',
-              data: processedSessions,
-              timestamp: new Date().toISOString()
-            })
+            // Enviar dados via SSE apenas se o controller ainda estiver aberto
+            if (!isClosed) {
+              const data = JSON.stringify({
+                type: 'sessions_update',
+                data: processedSessions,
+                timestamp: new Date().toISOString()
+              })
 
-            controller.enqueue(`data: ${data}\n\n`)
+              controller.enqueue(`data: ${data}\n\n`)
+            }
           } catch (error) {
             console.error('Erro ao buscar sessões em tempo real:', error)
-            controller.enqueue(`data: ${JSON.stringify({ type: 'error', message: 'Erro ao buscar dados' })}\n\n`)
+            // Só enviar erro se o controller ainda estiver aberto
+            if (!isClosed) {
+              try {
+                controller.enqueue(`data: ${JSON.stringify({ type: 'error', message: 'Erro ao buscar dados' })}\n\n`)
+              } catch (controllerError) {
+                // Controller já foi fechado, marcar como fechado
+                isClosed = true
+              }
+            }
           }
         }
 
@@ -81,6 +98,7 @@ export async function GET(request: NextRequest) {
 
         // Cleanup quando a conexão for fechada
         return () => {
+          isClosed = true
           clearInterval(interval)
         }
       }

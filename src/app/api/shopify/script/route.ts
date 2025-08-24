@@ -16,35 +16,48 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar domínio personalizado verificado para esta loja
-    const dominio = await prisma.dominios.findFirst({
+    // Primeiro, buscar a loja Shopify pelo domínio
+    const lojaShopify = await prisma.loja_Shopify.findFirst({
       where: {
-        dominio: {
-          contains: shopDomain
-        },
-        status: 'verified'
+        dominio_api: shopDomain
       }
     })
 
-    // Determinar a URL base para o checkout
-    let checkoutBaseUrl: string
-    let configBaseUrl: string
-    
-    if (dominio) {
-      // Usar domínio personalizado verificado
-      checkoutBaseUrl = `https://checkout.${dominio.dominio}`
-      configBaseUrl = `https://checkout.${dominio.dominio}`
-    } else {
-      // Fallback para localhost em desenvolvimento ou domínio padrão
-      const isDevelopment = process.env.NODE_ENV === 'development'
-      if (isDevelopment) {
-        checkoutBaseUrl = 'http://localhost:9002'
-        configBaseUrl = 'http://localhost:9002'
-      } else {
-        checkoutBaseUrl = 'https://checkout.lojafacil.com'
-        configBaseUrl = 'https://checkout.lojafacil.com'
-      }
+    if (!lojaShopify) {
+      return NextResponse.json(
+        { 
+          error: 'Loja Shopify não encontrada',
+          message: 'Esta loja não está configurada no sistema'
+        },
+        { status: 404 }
+      )
     }
+
+    // Buscar domínio personalizado verificado para esta loja
+    const dominio = await prisma.dominios.findFirst({
+      where: {
+        id_loja: lojaShopify.id_loja,
+        status: 'verified',
+        dns_verificado: true,
+        ativo: true
+      }
+    })
+
+    // Se não houver domínio personalizado configurado e verificado, não gerar script
+    if (!dominio) {
+      return NextResponse.json(
+        {
+          error: 'Domínio não configurado',
+          message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard antes de gerar o script de integração.',
+          requires_domain: true
+        },
+        { status: 400 }
+      )
+    }
+
+    // Usar domínio personalizado verificado
+    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
+    const configBaseUrl = `https://checkout.${dominio.dominio}`
 
     // Gerar o script JavaScript dinamicamente
     const script = `/**
