@@ -115,6 +115,20 @@ Este erro ocorre quando `useSearchParams()` é usado sem um Suspense boundary no
 </Suspense>
 ```
 
+### Erro "npm run build failed with exit code 1"
+Este erro pode ocorrer por várias razões durante o build no EasyPanel:
+
+**Possíveis causas e soluções**:
+1. **Variáveis de ambiente ausentes**: Certifique-se de que todas as variáveis obrigatórias estão configuradas no EasyPanel
+2. **Problemas de memória**: O build pode falhar por falta de memória no container
+3. **Dependências**: Verifique se todas as dependências estão instaladas corretamente
+4. **Formato ENV**: Use `ENV KEY=value` ao invés de `ENV KEY value` (já corrigido)
+
+**Para debugar**:
+- Execute `npm run build` localmente para verificar se o build funciona
+- Verifique os logs completos no EasyPanel para identificar o erro específico
+- Confirme que a `DATABASE_URL` temporária está sendo usada durante o build
+
 ### Erro de Autenticação
 - Verifique `NEXTAUTH_SECRET` e `NEXTAUTH_URL`
 - Confirme se as credenciais Firebase estão corretas
