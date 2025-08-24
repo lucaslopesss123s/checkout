@@ -20,6 +20,9 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
+# Set temporary DATABASE_URL for build (required by Prisma)
+ENV DATABASE_URL="postgresql://temp:temp@temp:5432/temp"
+
 # Build the application
 RUN npm run build
 
