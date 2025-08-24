@@ -123,11 +123,32 @@ Este erro pode ocorrer por várias razões durante o build no EasyPanel:
 2. **Problemas de memória**: O build pode falhar por falta de memória no container
 3. **Dependências**: Verifique se todas as dependências estão instaladas corretamente
 4. **Formato ENV**: Use `ENV KEY=value` ao invés de `ENV KEY value` (já corrigido)
+5. **Erro de prerender**: Páginas que fazem consultas ao banco de dados podem falhar durante o prerender
 
 **Para debugar**:
 - Execute `npm run build` localmente para verificar se o build funciona
 - Verifique os logs completos no EasyPanel para identificar o erro específico
 - Confirme que a `DATABASE_URL` temporária está sendo usada durante o build
+
+### Erro "Can't reach database server during prerender"
+Este erro ocorre quando uma página tenta fazer consultas ao banco de dados durante o prerender (build time).
+
+**Solução**: Forçar renderização dinâmica nas páginas que fazem consultas ao banco:
+```tsx
+// Adicionar no topo da página
+export const dynamic = 'force-dynamic';
+
+// Envolver consultas com try-catch
+async function getData() {
+  try {
+    const data = await prisma.model.findMany();
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar dados:', error);
+    return [];
+  }
+}
+```
 
 ### Erro de Autenticação
 - Verifique `NEXTAUTH_SECRET` e `NEXTAUTH_URL`
