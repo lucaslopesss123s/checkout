@@ -3,67 +3,12 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// GET /api/shopify/script?domain=exemplo.com
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const shopDomain = searchParams.get('domain')
-    
-    if (!shopDomain) {
-      return NextResponse.json(
-        { error: 'Parâmetro domain é obrigatório' },
-        { status: 400 }
-      )
-    }
-
-    // Primeiro, buscar a loja Shopify pelo domínio
-    const lojaShopify = await prisma.loja_Shopify.findFirst({
-      where: {
-        dominio_api: shopDomain
-      }
-    })
-
-    if (!lojaShopify) {
-      return NextResponse.json(
-        { 
-          error: 'Loja Shopify não encontrada',
-          message: 'Esta loja não está configurada no sistema'
-        },
-        { status: 404 }
-      )
-    }
-
-    // Buscar domínio personalizado verificado para esta loja
-    const dominio = await prisma.dominios.findFirst({
-      where: {
-        id_loja: lojaShopify.id_loja,
-        status: 'verified',
-        dns_verificado: true,
-        ativo: true
-      }
-    })
-
-    // Se não houver domínio personalizado configurado e verificado, não gerar script
-    if (!dominio) {
-      return NextResponse.json(
-        {
-          error: 'Domínio não configurado',
-          message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard antes de gerar o script de integração.',
-          requires_domain: true
-        },
-        { status: 400 }
-      )
-    }
-
-    // Usar domínio personalizado verificado
-    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
-    const configBaseUrl = `https://checkout.${dominio.dominio}`
-
-    // Gerar o script JavaScript dinamicamente
-    const script = `/**
+// Função para gerar o conteúdo do script
+function generateScriptContent(storeId: string, domainName: string, checkoutBaseUrl: string, configBaseUrl: string) {
+  return `/**
  * Script de Integração Shopify - Checkout Personalizado
- * Gerado automaticamente para: ${shopDomain}
- * Domínio personalizado: ${dominio ? `checkout.${dominio.dominio}` : 'Não configurado'}
+ * Gerado automaticamente para loja: ${storeId}
+ * Domínio personalizado: checkout.${domainName}
  * 
  * Este script deve ser adicionado ao tema Shopify para redirecionar
  * o checkout padrão para o checkout personalizado.
@@ -105,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Função de log para debug
     function log(...args) {
         if (CONFIG.debug) {
-            console.log('[Shopify Integration - ${shopDomain}]', ...args);
+            console.log('[Shopify Integration - Store: ${storeId}]', ...args);
         }
     }
     
@@ -164,60 +109,53 @@ export async function GET(request: NextRequest) {
     // Função para redirecionar para checkout personalizado
     async function redirectToCustomCheckout() {
         try {
-            const shopInfo = getShopInfo();
+            log('Redirecionando para checkout personalizado...');
+            
             const cartItems = await getCartItems();
+            const shopInfo = getShopInfo();
             
             if (cartItems.length === 0) {
-                alert('Seu carrinho está vazio!');
-                return;
+                log('Carrinho vazio, não redirecionando');
+                return false;
             }
             
-            // Obter dados completos do carrinho
-            const response = await fetch('/cart.js');
-            const cartData = await response.json();
-            
-            // Preparar dados para envio à API
+            // Criar sessão de checkout
             const checkoutData = {
-                products: cartData.items.map(item => ({
-                    id: item.id.toString(),
-                    title: item.product_title,
-                    price: item.price / 100,
-                    quantity: item.quantity,
-                    image: item.image,
-                    variant_title: item.variant_title
-                })),
-                store_domain: window.location.hostname,
-                currency: cartData.currency || 'BRL',
-                total_price: cartData.total_price / 100,
-                subtotal_price: cartData.items_subtotal_price / 100
+                items: cartItems,
+                shop: shopInfo,
+                timestamp: Date.now()
             };
             
-            // Enviar dados para a API de checkout
-            const checkoutResponse = await fetch(CHECKOUT_API_URL, {
+            const response = await fetch(CHECKOUT_API_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(checkoutData)
             });
             
-            const result = await checkoutResponse.json();
-            
-            if (result.success && result.checkout_url) {
-                // Redirecionar para a URL de checkout retornada pela API
-                window.location.href = result.checkout_url;
+            if (response.ok) {
+                const result = await response.json();
+                
+                if (result.checkout_url) {
+                    log('Redirecionando para:', result.checkout_url);
+                    window.location.href = result.checkout_url;
+                    return true;
+                } else {
+                    log('URL de checkout não retornada');
+                }
             } else {
-                console.error('Erro ao criar checkout:', result.error);
-                alert('Erro ao processar checkout. Tente novamente.');
+                log('Erro na resposta da API:', response.status);
             }
             
         } catch (error) {
-            console.error('Erro ao redirecionar para checkout:', error);
-            alert('Erro ao processar checkout. Tente novamente.');
+            log('Erro ao redirecionar:', error);
         }
+        
+        return false;
     }
     
-    // Função para interceptar cliques nos botões
+    // Função para interceptar cliques em botões de checkout
     function interceptCheckoutButtons() {
         CONFIG.buttonSelectors.forEach(selector => {
             const buttons = document.querySelectorAll(selector);
@@ -233,34 +171,38 @@ export async function GET(request: NextRequest) {
                     return;
                 }
                 
-                // Verificar se já foi processado
-                if (button.dataset.customCheckoutProcessed) {
+                // Verificar se já foi interceptado
+                if (button.dataset.shopifyIntegrationIntercepted) {
                     return;
                 }
                 
                 log('Interceptando botão:', button);
                 
-                // Marcar como processado
-                button.dataset.customCheckoutProcessed = 'true';
-                
-                // Adicionar event listener
-                button.addEventListener('click', function(e) {
-                    // Verificar se é realmente um botão de checkout
-                    const buttonText = (button.textContent || button.value || '').toLowerCase();
-                    const isCheckoutButton = buttonText.includes('checkout') || 
-                                           buttonText.includes('finalizar') ||
-                                           buttonText.includes('comprar') ||
-                                           button.classList.contains('checkout') ||
-                                           button.name === 'add';
+                button.addEventListener('click', async (e) => {
+                    // Se for botão de adicionar ao carrinho, deixar funcionar normalmente
+                    if (button.name === 'add' || button.matches('input[name="add"]')) {
+                        log('Botão de adicionar ao carrinho, não interceptando');
+                        return;
+                    }
                     
-                    if (isCheckoutButton) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        log('Botão de checkout clicado:', button);
-                        redirectToCustomCheckout();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const success = await redirectToCustomCheckout();
+                    
+                    if (!success) {
+                        log('Falha no redirecionamento, permitindo comportamento padrão');
+                        // Remover o listener temporariamente e clicar novamente
+                        button.removeEventListener('click', arguments.callee);
+                        button.click();
+                        // Reativar o listener após um pequeno delay
+                        setTimeout(() => {
+                            button.addEventListener('click', arguments.callee);
+                        }, 100);
                     }
                 });
+                
+                button.dataset.shopifyIntegrationIntercepted = 'true';
             });
         });
     }
@@ -270,42 +212,48 @@ export async function GET(request: NextRequest) {
         const forms = document.querySelectorAll('form[action*="/cart"], form[action*="/checkout"]');
         
         forms.forEach(form => {
-            if (form.dataset.customCheckoutProcessed) {
+            if (form.dataset.shopifyIntegrationIntercepted) {
                 return;
             }
             
-            form.dataset.customCheckoutProcessed = 'true';
+            log('Interceptando formulário:', form);
             
-            form.addEventListener('submit', function(e) {
-                const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
-                const buttonText = (submitButton?.textContent || submitButton?.value || '').toLowerCase();
+            form.addEventListener('submit', async (e) => {
+                // Se for formulário de adicionar ao carrinho, deixar funcionar
+                if (form.action.includes('/cart/add')) {
+                    log('Formulário de adicionar ao carrinho, não interceptando');
+                    return;
+                }
                 
-                if (buttonText.includes('checkout') || buttonText.includes('finalizar')) {
-                    e.preventDefault();
-                    log('Formulário de checkout interceptado:', form);
-                    redirectToCustomCheckout();
+                e.preventDefault();
+                
+                const success = await redirectToCustomCheckout();
+                
+                if (!success) {
+                    log('Falha no redirecionamento, permitindo envio padrão');
+                    form.removeEventListener('submit', arguments.callee);
+                    form.submit();
                 }
             });
+            
+            form.dataset.shopifyIntegrationIntercepted = 'true';
         });
     }
     
-    // Função para observar mudanças no DOM (para SPAs)
+    // Função para observar mudanças no DOM
     function observeDOM() {
-        const observer = new MutationObserver(function(mutations) {
-            let shouldReprocess = false;
-            
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    shouldReprocess = true;
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            // Interceptar novos botões
+                            interceptCheckoutButtons();
+                            interceptCheckoutForms();
+                        }
+                    });
                 }
             });
-            
-            if (shouldReprocess) {
-                setTimeout(() => {
-                    interceptCheckoutButtons();
-                    interceptCheckoutForms();
-                }, 100);
-            }
         });
         
         observer.observe(document.body, {
@@ -316,7 +264,7 @@ export async function GET(request: NextRequest) {
     
     // Função de inicialização
     async function init() {
-        log('Iniciando integração Shopify para ${shopDomain}...');
+        log('Iniciando integração Shopify para loja ${storeId}...');
         
         // Verificar se a loja está configurada
         const storeConfig = await checkStoreConfiguration();
@@ -346,7 +294,7 @@ export async function GET(request: NextRequest) {
             document.head.appendChild(style);
         }
         
-        log('Integração Shopify ativada com sucesso para ${shopDomain}!');
+        log('Integração Shopify ativada com sucesso para loja ${storeId}!');
     }
     
     // Aguardar carregamento do DOM
@@ -367,6 +315,107 @@ export async function GET(request: NextRequest) {
     }
     
 })();`
+}
+
+// GET /api/shopify/script?domain=exemplo.com&storeId=123
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const shopDomain = searchParams.get('domain')
+    const storeId = searchParams.get('storeId')
+    
+    // Se storeId for fornecido, usar busca direta por loja
+    if (storeId) {
+      // Buscar domínio personalizado verificado para esta loja
+      const dominio = await prisma.dominios.findFirst({
+        where: {
+          id_loja: storeId,
+          status: 'verified',
+          dns_verificado: true,
+          ativo: true
+        }
+      })
+
+      // Se não houver domínio personalizado configurado e verificado, não gerar script
+      if (!dominio) {
+        return NextResponse.json(
+          {
+            error: 'Domínio não configurado',
+            message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard antes de gerar o script de integração.',
+            requires_domain: true
+          },
+          { status: 400 }
+        )
+      }
+
+      // Usar domínio personalizado verificado
+      const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
+      const configBaseUrl = `https://checkout.${dominio.dominio}`
+
+      // Gerar o script JavaScript dinamicamente
+      const script = generateScriptContent(storeId, dominio.dominio, checkoutBaseUrl, configBaseUrl)
+      
+      return new NextResponse(script, {
+        headers: {
+          'Content-Type': 'application/javascript',
+          'Cache-Control': 'public, max-age=3600'
+        }
+      })
+    }
+    
+    // Fallback para o método antigo usando domain
+    if (!shopDomain) {
+      return NextResponse.json(
+        { error: 'Parâmetro domain ou storeId é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Primeiro, buscar a loja Shopify pelo domínio
+    const lojaShopify = await prisma.loja_Shopify.findFirst({
+      where: {
+        dominio_api: shopDomain
+      }
+    })
+
+    if (!lojaShopify) {
+      return NextResponse.json(
+        { 
+          error: 'Loja Shopify não encontrada',
+          message: 'Esta loja não está configurada no sistema'
+        },
+        { status: 404 }
+      )
+    }
+
+    // Buscar domínio personalizado verificado para esta loja
+    const dominio = await prisma.dominios.findFirst({
+      where: {
+        id_loja: lojaShopify.id_loja,
+        status: 'verified',
+        dns_verificado: true,
+        ativo: true
+      }
+    })
+
+    // Se não houver domínio personalizado configurado e verificado, não gerar script
+    if (!dominio) {
+      return NextResponse.json(
+        {
+          error: 'Domínio não configurado',
+          message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard antes de gerar o script de integração.',
+          requires_domain: true
+        },
+        { status: 400 }
+      )
+    }
+
+    // Usar domínio personalizado verificado
+    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
+    const configBaseUrl = `https://checkout.${dominio.dominio}`
+
+    // Gerar o script JavaScript dinamicamente usando a função generateScriptContent
+    const script = generateScriptContent(lojaShopify.id_loja, dominio.dominio, checkoutBaseUrl, configBaseUrl)
 
     // Retornar o script com headers apropriados
     return new NextResponse(script, {

@@ -298,18 +298,18 @@ export default function ShopifyIntegrationPage() {
   }
 
   const generateScript = async () => {
-    if (!config.dominio_api) {
+    if (!selectedStore?.id) {
       toast({
         title: "Erro",
-        description: "Domínio da API é obrigatório para gerar o script",
+        description: "Nenhuma loja selecionada",
         variant: "destructive"
       })
       return
     }
 
     try {
-      // Verificar se há domínio configurado através da API
-      const response = await fetch(`/api/shopify/script?domain=${config.dominio_api}`)
+      // Gerar script usando o ID da loja atual
+      const response = await fetch(`/api/shopify/script?storeId=${selectedStore.id}`)
       
       if (!response.ok) {
         const errorData = await response.json()

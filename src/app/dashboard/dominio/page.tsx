@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
 import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useStore } from '@/contexts/store-context'
 
 interface Domain {
   id: string
@@ -25,6 +26,7 @@ interface Domain {
 }
 
 export default function DominioPage() {
+  const { selectedStore } = useStore()
   const [domains, setDomains] = useState<Domain[]>([])
   const [newDomain, setNewDomain] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -32,15 +34,19 @@ export default function DominioPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadDomains()
-  }, [])
+    if (selectedStore) {
+      loadDomains()
+    }
+  }, [selectedStore])
 
   const loadDomains = async () => {
+    if (!selectedStore) {
+      console.log('Nenhuma loja selecionada')
+      return
+    }
+    
     try {
-      // TODO: Obter ID da loja do contexto/sessão
-      const idLoja = '1' // Temporário - deve vir do contexto da loja
-      
-      const response = await fetch(`/api/dominios?id_loja=${idLoja}`)
+      const response = await fetch(`/api/dominios?id_loja=${selectedStore.id}`)
       if (response.ok) {
         const data = await response.json()
         // Converter formato da API para o formato esperado pelo componente
@@ -93,17 +99,23 @@ export default function DominioPage() {
       return
     }
 
+    if (!selectedStore) {
+      toast({
+        title: 'Erro',
+        description: 'Nenhuma loja selecionada.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setIsLoading(true)
     try {
-      // TODO: Obter ID da loja do contexto/sessão
-      const idLoja = '1' // Temporário - deve vir do contexto da loja
-      
       const response = await fetch('/api/dominios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           dominio: newDomain,
-          id_loja: idLoja,
+          id_loja: selectedStore.id,
           subdominio: 'checkout'
         })
       })
