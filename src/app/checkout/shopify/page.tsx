@@ -98,6 +98,9 @@ function ShopifyCheckoutContent() {
     paymentMethod: ''
   })
 
+  // Estado para controlar o salvamento automático
+  const [carrinhoId, setCarrinhoId] = useState<string | null>(null)
+
   useEffect(() => {
     const sessionData = searchParams.get('session')
     
@@ -126,6 +129,107 @@ function ShopifyCheckoutContent() {
       setLoading(false)
     }
   }, [searchParams])
+
+  // Função para salvar dados no carrinho automaticamente
+  const salvarCarrinhoAutomatico = async () => {
+    if (!session) return
+
+    try {
+      const carrinhoData = {
+        id_loja: session.loja_id,
+        session_id: session.id,
+        nome: clienteData.nomeCompleto || null,
+        email: clienteData.email || null,
+        telefone: clienteData.telefone || null,
+        cpf: clienteData.cpfCnpj || null,
+        cep: enderecoData.cep || null,
+        endereco: enderecoData.endereco || null,
+        numero: enderecoData.numero || null,
+        complemento: enderecoData.complemento || null,
+        bairro: enderecoData.bairro || null,
+        cidade: enderecoData.cidade || null,
+        estado: enderecoData.estado || null,
+        itens: session.produtos || [],
+        valor_total: session.total || null,
+        metodo_pagamento: pagamentoData.tipo || null,
+        ip_cliente: null,
+        user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : null,
+        primeira_etapa_completada: !!(clienteData.email || clienteData.telefone)
+      }
+
+      const response = await fetch('/api/carrinho', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(carrinhoData)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.carrinho?.id) {
+          setCarrinhoId(result.carrinho.id)
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao salvar carrinho automaticamente:', error)
+    }
+  }
+
+  // Salvar automaticamente quando dados importantes mudarem
+  useEffect(() => {
+    if (session && (clienteData.email || clienteData.telefone || clienteData.nomeCompleto)) {
+      const timeoutId = setTimeout(() => {
+        salvarCarrinhoAutomatico()
+      }, 1000) // Debounce de 1 segundo
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [clienteData.email, clienteData.telefone, clienteData.nomeCompleto, enderecoData, pagamentoData.tipo, session])
+
+  // Salvar quando o usuário sair da página
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (session && (clienteData.email || clienteData.telefone)) {
+        // Usar sendBeacon para garantir que a requisição seja enviada
+        const carrinhoData = {
+          id_loja: session.loja_id,
+          session_id: session.id,
+          nome: clienteData.nomeCompleto || null,
+          email: clienteData.email || null,
+          telefone: clienteData.telefone || null,
+          cpf: clienteData.cpfCnpj || null,
+          cep: enderecoData.cep || null,
+          endereco: enderecoData.endereco || null,
+          numero: enderecoData.numero || null,
+          complemento: enderecoData.complemento || null,
+          bairro: enderecoData.bairro || null,
+          cidade: enderecoData.cidade || null,
+          estado: enderecoData.estado || null,
+          itens: session.produtos || [],
+          valor_total: session.total || null,
+          metodo_pagamento: pagamentoData.tipo || null,
+          primeira_etapa_completada: true
+        }
+
+        navigator.sendBeacon('/api/carrinho', JSON.stringify(carrinhoData))
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleBeforeUnload()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [session, clienteData, enderecoData, pagamentoData.tipo])
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))

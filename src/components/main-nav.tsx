@@ -18,7 +18,8 @@ import {
   ArrowDown,
   Ticket,
   CheckCircle,
-  ShoppingBag
+  ShoppingBag,
+  Globe
 } from "lucide-react"
 import {
     Collapsible,
@@ -48,6 +49,7 @@ const navItems = [
   },
   { href: "/dashboard/adquirentes", label: "Adquirentes", icon: CreditCard },
   { href: "/dashboard/produtos", label: "Produtos", icon: Package },
+  { href: "/dashboard/dominio", label: "Domínio", icon: Globe },
   {
     label: "Marketing",
     icon: Megaphone,

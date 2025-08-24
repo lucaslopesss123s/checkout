@@ -8,22 +8,96 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Settings, CreditCard, CheckCircle, ArrowLeft } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Settings, CreditCard, CheckCircle, ArrowLeft, AlertCircle } from "lucide-react"
+import { validateGatewayCredentials, sanitizeCredentials } from "@/lib/gateways/validation"
+import { BrazaPayCredentials, FreePayCredentials } from "@/lib/gateways/types"
 
 export default function AdquirentesPage() {
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
-  const [credentials, setCredentials] = useState({
+  const [isBrazaPayConfigModalOpen, setIsBrazaPayConfigModalOpen] = useState(false)
+  const [isFreePayConfigModalOpen, setIsFreePayConfigModalOpen] = useState(false)
+  
+  const [brazaPayCredentials, setBrazaPayCredentials] = useState({
     chaveSecreta: '',
     status: true,
     ativarCartaoCredito: true,
     ativarPix: true,
     utilizarTaxaJurosCustomizada: false
   })
+  
+  const [freePayCredentials, setFreePayCredentials] = useState({
+    apiKey: '',
+    merchantId: '',
+    status: true,
+    ativarCartaoCredito: true,
+    ativarPix: true,
+    ativarBoleto: true,
+    ambiente: 'sandbox' // sandbox ou production
+  })
 
-  const handleSaveCredentials = () => {
-    // Aqui você implementaria a lógica para salvar as credenciais
-    console.log('Salvando credenciais:', credentials)
-    setIsConfigModalOpen(false)
+  const [brazaPayErrors, setBrazaPayErrors] = useState<string[]>([])
+  const [freePayErrors, setFreePayErrors] = useState<string[]>([])
+  const [isSavingBrazaPay, setIsSavingBrazaPay] = useState(false)
+  const [isSavingFreePay, setIsSavingFreePay] = useState(false)
+
+  const handleSaveBrazaPayCredentials = async () => {
+    setIsSavingBrazaPay(true)
+    setBrazaPayErrors([])
+    
+    // Sanitizar e validar credenciais
+    const sanitizedCredentials = sanitizeCredentials(brazaPayCredentials)
+    const validation = validateGatewayCredentials('brazapay', sanitizedCredentials)
+    
+    if (!validation.isValid) {
+      setBrazaPayErrors(validation.errors)
+      setIsSavingBrazaPay(false)
+      return
+    }
+    
+    try {
+      // Aqui você implementaria a lógica para salvar as credenciais do BrazaPay
+      console.log('Salvando credenciais BrazaPay:', sanitizedCredentials)
+      
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      setIsBrazaPayConfigModalOpen(false)
+      setBrazaPayErrors([])
+    } catch (error) {
+      setBrazaPayErrors(['Erro ao salvar credenciais. Tente novamente.'])
+    } finally {
+      setIsSavingBrazaPay(false)
+    }
+  }
+  
+  const handleSaveFreePayCredentials = async () => {
+    setIsSavingFreePay(true)
+    setFreePayErrors([])
+    
+    // Sanitizar e validar credenciais
+    const sanitizedCredentials = sanitizeCredentials(freePayCredentials)
+    const validation = validateGatewayCredentials('freepay', sanitizedCredentials)
+    
+    if (!validation.isValid) {
+      setFreePayErrors(validation.errors)
+      setIsSavingFreePay(false)
+      return
+    }
+    
+    try {
+      // Aqui você implementaria a lógica para salvar as credenciais do FreePay
+      console.log('Salvando credenciais FreePay:', sanitizedCredentials)
+      
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      setIsFreePayConfigModalOpen(false)
+      setFreePayErrors([])
+    } catch (error) {
+      setFreePayErrors(['Erro ao salvar credenciais. Tente novamente.'])
+    } finally {
+      setIsSavingFreePay(false)
+    }
   }
 
   return (
@@ -71,7 +145,7 @@ export default function AdquirentesPage() {
                 <p>• Suporte 24/7</p>
               </div>
               <div className="flex space-x-2">
-                 <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
+                 <Dialog open={isBrazaPayConfigModalOpen} onOpenChange={setIsBrazaPayConfigModalOpen}>
                    <DialogTrigger asChild>
                      <Button size="sm" className="flex-1">
                        <Settings className="h-4 w-4 mr-2" />
@@ -102,8 +176,8 @@ export default function AdquirentesPage() {
                            <Input
                              id="chave-secreta"
                              type="password"
-                             value={credentials.chaveSecreta}
-                             onChange={(e) => setCredentials({...credentials, chaveSecreta: e.target.value})}
+                             value={brazaPayCredentials.chaveSecreta}
+                             onChange={(e) => setBrazaPayCredentials({...brazaPayCredentials, chaveSecreta: e.target.value})}
                              placeholder="Digite sua chave secreta"
                            />
                          </div>
@@ -113,12 +187,12 @@ export default function AdquirentesPage() {
                          <div className="flex items-center justify-between">
                            <Label className="text-sm font-medium">Status *</Label>
                            <div className="flex items-center space-x-2">
-                             <span className={`text-sm ${credentials.status ? 'text-green-600' : 'text-red-600'}`}>
-                               {credentials.status ? 'Inativo' : 'Ativo'}
+                             <span className={`text-sm ${brazaPayCredentials.status ? 'text-green-600' : 'text-red-600'}`}>
+                               {brazaPayCredentials.status ? 'Ativo' : 'Inativo'}
                              </span>
                              <Switch
-                               checked={credentials.status}
-                               onCheckedChange={(checked) => setCredentials({...credentials, status: checked})}
+                               checked={brazaPayCredentials.status}
+                               onCheckedChange={(checked) => setBrazaPayCredentials({...brazaPayCredentials, status: checked})}
                              />
                            </div>
                          </div>
@@ -131,28 +205,41 @@ export default function AdquirentesPage() {
                            <div className="flex items-center justify-between">
                              <Label className="text-sm">Ativar cartão de crédito</Label>
                              <Switch
-                               checked={credentials.ativarCartaoCredito}
-                               onCheckedChange={(checked) => setCredentials({...credentials, ativarCartaoCredito: checked})}
+                               checked={brazaPayCredentials.ativarCartaoCredito}
+                               onCheckedChange={(checked) => setBrazaPayCredentials({...brazaPayCredentials, ativarCartaoCredito: checked})}
                              />
                            </div>
                            
                            <div className="flex items-center justify-between">
                              <Label className="text-sm">Ativar pix</Label>
                              <Switch
-                               checked={credentials.ativarPix}
-                               onCheckedChange={(checked) => setCredentials({...credentials, ativarPix: checked})}
+                               checked={brazaPayCredentials.ativarPix}
+                               onCheckedChange={(checked) => setBrazaPayCredentials({...brazaPayCredentials, ativarPix: checked})}
                              />
                            </div>
                            
                            <div className="flex items-center justify-between">
                              <Label className="text-sm">Utilizar taxa de juros customizada</Label>
                              <Switch
-                               checked={credentials.utilizarTaxaJurosCustomizada}
-                               onCheckedChange={(checked) => setCredentials({...credentials, utilizarTaxaJurosCustomizada: checked})}
+                               checked={brazaPayCredentials.utilizarTaxaJurosCustomizada}
+                               onCheckedChange={(checked) => setBrazaPayCredentials({...brazaPayCredentials, utilizarTaxaJurosCustomizada: checked})}
                              />
                            </div>
                          </div>
                        </div>
+
+                       {brazaPayErrors.length > 0 && (
+                         <Alert variant="destructive">
+                           <AlertCircle className="h-4 w-4" />
+                           <AlertDescription>
+                             <ul className="list-disc list-inside space-y-1">
+                               {brazaPayErrors.map((error, index) => (
+                                 <li key={index}>{error}</li>
+                               ))}
+                             </ul>
+                           </AlertDescription>
+                         </Alert>
+                       )}
 
                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                          <div className="flex items-start space-x-2">
@@ -170,17 +257,205 @@ export default function AdquirentesPage() {
                      <div className="flex space-x-3 pt-4">
                        <Button
                          variant="outline"
-                         onClick={() => setIsConfigModalOpen(false)}
+                         onClick={() => setIsBrazaPayConfigModalOpen(false)}
                          className="flex-1"
                        >
                          Cancelar
                        </Button>
                        <Button
-                         onClick={handleSaveCredentials}
+                         onClick={handleSaveBrazaPayCredentials}
+                         disabled={isSavingBrazaPay}
                          className="flex-1 bg-pink-500 hover:bg-pink-600"
                        >
-                         Salvar
+                         {isSavingBrazaPay ? 'Salvando...' : 'Salvar'}
                        </Button>
+                     </div>
+                   </DialogContent>
+                 </Dialog>
+                 <Button variant="outline" size="sm">
+                   Saiba Mais
+                 </Button>
+               </div>
+            </CardContent>
+          </Card>
+
+          {/* FreePay Gateway */}
+          <Card className="relative">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                    <CreditCard className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">FreePay</CardTitle>
+                    <CardDescription>Gateway de pagamento moderno</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Disponível
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p>• Pagamentos via PIX, Cartão e Boleto</p>
+                <p>• API moderna e flexível</p>
+                <p>• Sandbox para testes</p>
+                <p>• Documentação completa</p>
+              </div>
+              <div className="flex space-x-2">
+                 <Dialog open={isFreePayConfigModalOpen} onOpenChange={setIsFreePayConfigModalOpen}>
+                   <DialogTrigger asChild>
+                     <Button size="sm" className="flex-1">
+                       <Settings className="h-4 w-4 mr-2" />
+                       Configurar
+                     </Button>
+                   </DialogTrigger>
+                   <DialogContent className="sm:max-w-[500px]">
+                     <DialogHeader className="space-y-3">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                           <CreditCard className="h-5 w-5 text-white" />
+                         </div>
+                         <div>
+                           <DialogTitle className="text-xl">FREEPAY</DialogTitle>
+                           <DialogDescription>Integre sua loja ao gateway FreePay</DialogDescription>
+                         </div>
+                       </div>
+                     </DialogHeader>
+                     
+                     <div className="space-y-6 py-4">
+                       <div className="space-y-4">
+                         <h3 className="font-semibold text-sm">Informações básicas</h3>
+                         
+                         <div className="space-y-2">
+                           <Label htmlFor="api-key" className="text-sm font-medium">
+                             API Key *
+                           </Label>
+                           <Input
+                             id="api-key"
+                             type="password"
+                             value={freePayCredentials.apiKey}
+                             onChange={(e) => setFreePayCredentials({...freePayCredentials, apiKey: e.target.value})}
+                             placeholder="Digite sua API Key"
+                           />
+                         </div>
+                         
+                         <div className="space-y-2">
+                           <Label htmlFor="merchant-id" className="text-sm font-medium">
+                             Merchant ID *
+                           </Label>
+                           <Input
+                             id="merchant-id"
+                             type="text"
+                             value={freePayCredentials.merchantId}
+                             onChange={(e) => setFreePayCredentials({...freePayCredentials, merchantId: e.target.value})}
+                             placeholder="Digite seu Merchant ID"
+                           />
+                         </div>
+                       </div>
+
+                       <div className="space-y-4">
+                         <div className="flex items-center justify-between">
+                           <Label className="text-sm font-medium">Ambiente</Label>
+                           <div className="flex items-center space-x-2">
+                             <span className={`text-sm ${freePayCredentials.ambiente === 'production' ? 'text-green-600' : 'text-orange-600'}`}>
+                               {freePayCredentials.ambiente === 'production' ? 'Produção' : 'Sandbox'}
+                             </span>
+                             <Switch
+                               checked={freePayCredentials.ambiente === 'production'}
+                               onCheckedChange={(checked) => setFreePayCredentials({...freePayCredentials, ambiente: checked ? 'production' : 'sandbox'})}
+                             />
+                           </div>
+                         </div>
+                         
+                         <div className="flex items-center justify-between">
+                           <Label className="text-sm font-medium">Status *</Label>
+                           <div className="flex items-center space-x-2">
+                             <span className={`text-sm ${freePayCredentials.status ? 'text-green-600' : 'text-red-600'}`}>
+                               {freePayCredentials.status ? 'Ativo' : 'Inativo'}
+                             </span>
+                             <Switch
+                               checked={freePayCredentials.status}
+                               onCheckedChange={(checked) => setFreePayCredentials({...freePayCredentials, status: checked})}
+                             />
+                           </div>
+                         </div>
+                       </div>
+
+                       <div className="space-y-4">
+                         <h3 className="font-semibold text-sm">Métodos de Pagamento</h3>
+                         
+                         <div className="space-y-3">
+                           <div className="flex items-center justify-between">
+                             <Label className="text-sm">Ativar cartão de crédito</Label>
+                             <Switch
+                               checked={freePayCredentials.ativarCartaoCredito}
+                               onCheckedChange={(checked) => setFreePayCredentials({...freePayCredentials, ativarCartaoCredito: checked})}
+                             />
+                           </div>
+                           
+                           <div className="flex items-center justify-between">
+                             <Label className="text-sm">Ativar PIX</Label>
+                             <Switch
+                               checked={freePayCredentials.ativarPix}
+                               onCheckedChange={(checked) => setFreePayCredentials({...freePayCredentials, ativarPix: checked})}
+                             />
+                           </div>
+                           
+                           <div className="flex items-center justify-between">
+                             <Label className="text-sm">Ativar boleto</Label>
+                             <Switch
+                               checked={freePayCredentials.ativarBoleto}
+                               onCheckedChange={(checked) => setFreePayCredentials({...freePayCredentials, ativarBoleto: checked})}
+                             />
+                           </div>
+                         </div>
+                       </div>
+
+                       {freePayErrors.length > 0 && (
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              <ul className="list-disc list-inside space-y-1">
+                                {freePayErrors.map((error, index) => (
+                                  <li key={index}>{error}</li>
+                                ))}
+                              </ul>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex items-start space-x-2">
+                            <div className="w-4 h-4 rounded-full bg-blue-500 flex-shrink-0 mt-0.5">
+                              <span className="text-white text-xs font-bold flex items-center justify-center w-full h-full">i</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">Precisa de ajuda?</p>
+                              <p className="text-sm text-blue-700">Consulte a documentação do FreePay para integração.</p>
+                            </div>
+                          </div>
+                        </div>
+                     </div>
+
+                     <div className="flex space-x-3 pt-4">
+                       <Button
+                         variant="outline"
+                         onClick={() => setIsFreePayConfigModalOpen(false)}
+                         className="flex-1"
+                       >
+                         Cancelar
+                       </Button>
+                       <Button
+                          onClick={handleSaveFreePayCredentials}
+                          disabled={isSavingFreePay}
+                          className="flex-1 bg-green-500 hover:bg-green-600"
+                        >
+                          {isSavingFreePay ? 'Salvando...' : 'Salvar'}
+                        </Button>
                      </div>
                    </DialogContent>
                  </Dialog>

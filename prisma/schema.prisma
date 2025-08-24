@@ -303,3 +303,25 @@ model Carrinho {
   @@index([session_id])
   @@index([email])
 }
+
+// 17 - Dominios (domínios personalizados)
+model Dominios {
+  id            String   @id @default(uuid())
+  id_loja       String   // ID da loja que possui o domínio
+  dominio       String   @unique // Domínio personalizado (ex: meusite.com.br)
+  subdominio    String   @default("checkout") // Subdomínio usado (ex: checkout)
+  status        String   @default("pending") // pending, verified, failed, inactive
+  dns_verificado Boolean @default(false) // Se o DNS foi verificado com sucesso
+  ssl_ativo     Boolean @default(false) // Se o SSL está ativo
+  ultima_verificacao DateTime? // Última vez que foi verificado
+  configuracao_dns Json? // Configurações DNS necessárias
+  erro_verificacao String? // Último erro de verificação, se houver
+  ativo         Boolean @default(true) // Se o domínio está ativo
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([id_loja])
+  @@index([dominio])
+  @@index([status])
+  @@index([dns_verificado])
+}

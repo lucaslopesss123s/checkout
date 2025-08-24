@@ -195,35 +195,46 @@ export default function ShopifyCheckoutPage() {
     }
   }, []);
 
-  // useEffect para marcar carrinho como abandonado quando usuário sair da página
+  // useEffect para salvar carrinho quando usuário sair da página
   useEffect(() => {
-    const handleBeforeUnload = async () => {
+    const handleBeforeUnload = () => {
       if (sessionId && lojaId && (customerData.email || customerData.telephone)) {
-        // Usar navigator.sendBeacon para garantir que a requisição seja enviada
-        const data = JSON.stringify({
-          session_id: sessionId,
+        // Usar sendBeacon para garantir que a requisição seja enviada
+        const carrinhoData = {
           id_loja: lojaId,
-          status: 'abandonado'
-        });
+          session_id: sessionId,
+          nome: customerData.name || null,
+          email: customerData.email || null,
+          telefone: customerData.telephone || null,
+          cpf: customerData.document || null,
+          cep: addressData.zipCode || null,
+          endereco: addressData.street || null,
+          numero: addressData.number || null,
+          complemento: addressData.complement || null,
+          bairro: addressData.neighborhood || null,
+          cidade: addressData.city || null,
+          estado: addressData.state || null,
+          itens: checkoutData?.products.map(product => ({
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            quantity: product.quantity,
+            image: product.image,
+            variant_title: product.variant_title
+          })) || [],
+          valor_total: checkoutData?.total_price || null,
+          metodo_pagamento: paymentData.method || null,
+          user_agent: navigator.userAgent,
+          primeira_etapa_completada: true
+        };
         
-        navigator.sendBeacon('/api/carrinho', new Blob([data], { type: 'application/json' }));
+        navigator.sendBeacon('/api/carrinho', JSON.stringify(carrinhoData));
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && sessionId && lojaId && (customerData.email || customerData.telephone)) {
-        // Marcar como abandonado quando a aba fica oculta
-        fetch('/api/carrinho', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            id_loja: lojaId,
-            status: 'abandonado'
-          })
-        }).catch(error => console.error('Erro ao marcar carrinho como abandonado:', error));
+      if (document.visibilityState === 'hidden') {
+        handleBeforeUnload();
       }
     };
 
@@ -234,7 +245,7 @@ export default function ShopifyCheckoutPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [sessionId, lojaId, customerData.email, customerData.telephone]);
+  }, [sessionId, lojaId, customerData, addressData, paymentData, checkoutData]);
 
   // Função para salvar carrinho
   const saveCarrinho = async (primeiraEtapa = false) => {
@@ -341,12 +352,6 @@ export default function ShopifyCheckoutPage() {
     
     setCustomerData(prev => ({ ...prev, [field]: formattedValue }));
     
-    // Salvar carrinho sempre que qualquer campo for alterado (com debounce)
-    if (formattedValue && typeof formattedValue === 'string' && formattedValue.trim() !== '') {
-      console.log('handleCustomerChange: Salvando carrinho para campo:', field);
-      setTimeout(() => saveCarrinho(), 500);
-    }
-    
     // Verificar se a primeira etapa foi completada (nome e email/telefone)
     const updatedData = { ...customerData, [field]: formattedValue };
     const etapaCompleta = updatedData.name && (updatedData.email || updatedData.telephone);
@@ -359,15 +364,23 @@ export default function ShopifyCheckoutPage() {
 
   const handleAddressChange = (field: string, value: string | boolean) => {
     setAddressData(prev => ({ ...prev, [field]: value }));
-    // Salvar carrinho sempre que dados de endereço mudarem
-    setTimeout(() => saveCarrinho(), 500); // Debounce para evitar muitas chamadas
   };
 
   const handlePaymentChange = (field: string, value: string) => {
     setPaymentData(prev => ({ ...prev, [field]: value }));
-    // Salvar carrinho sempre que dados de pagamento mudarem
-    setTimeout(() => saveCarrinho(), 500); // Debounce para evitar muitas chamadas
   };
+
+  // useEffect para salvamento automático com debounce
+  useEffect(() => {
+    if (checkoutData && lojaId && (customerData.email || customerData.telephone || customerData.name)) {
+      const timeoutId = setTimeout(() => {
+        console.log('Salvamento automático ativado por mudança nos dados');
+        saveCarrinho(customerData.email || customerData.telephone ? true : false);
+      }, 1000); // Debounce de 1 segundo
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [customerData, addressData, paymentData, checkoutData, lojaId]);
 
   const handleCepChange = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, '');
