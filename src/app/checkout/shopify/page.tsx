@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
@@ -52,7 +52,7 @@ interface FormData {
   paymentMethod: string
 }
 
-export default function ShopifyCheckoutPage() {
+function ShopifyCheckoutContent() {
   const searchParams = useSearchParams()
   const [session, setSession] = useState<CheckoutSession | null>(null)
   const [loading, setLoading] = useState(true)
@@ -588,3 +588,18 @@ export default function ShopifyCheckoutPage() {
      </div>
    )
  }
+
+export default function ShopifyCheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando checkout...</p>
+        </div>
+      </div>
+    }>
+      <ShopifyCheckoutContent />
+    </Suspense>
+  )
+}
