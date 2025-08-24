@@ -8,10 +8,9 @@ const resolveCname = promisify(dns.resolveCname)
 const resolve4 = promisify(dns.resolve4)
 const resolveTxt = promisify(dns.resolveTxt)
 
-// IPs válidos do servidor (adicione os IPs reais do seu servidor)
+// IPs válidos do servidor
 const VALID_SERVER_IPS = [
-  '192.168.1.100', // IP exemplo - substitua pelo IP real do servidor
-  '10.0.0.1',      // IP exemplo - adicione outros IPs se necessário
+  '181.41.200.99', // IP da VPS
 ]
 
 // Função para verificar DNS

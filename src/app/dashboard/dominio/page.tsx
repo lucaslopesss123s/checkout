@@ -380,17 +380,17 @@ export default function DominioPage() {
               <div>
                 <Label className="text-sm font-medium">Valor/IP</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">192.168.1.100</code>
+                  <code className="bg-muted px-2 py-1 rounded text-sm">181.41.200.99</code>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard('192.168.1.100')}
+                    onClick={() => copyToClipboard('181.41.200.99')}
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  * IP do servidor - entre em contato com o suporte para obter o IP correto
+                  * IP da VPS onde o sistema está hospedado
                 </p>
               </div>
             </div>
@@ -398,7 +398,7 @@ export default function DominioPage() {
             <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
               <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro A:</p>
               <p className="mt-1">• <strong>Nome:</strong> checkout</p>
-              <p>• <strong>Valor:</strong> 192.168.1.100 (IP do servidor)</p>
+              <p>• <strong>Valor:</strong> 181.41.200.99 (IP da VPS)</p>
               <p className="mt-2">Resultado: <strong>checkout.meusite.com.br</strong></p>
             </div>
           </div>
