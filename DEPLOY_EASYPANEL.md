@@ -105,6 +105,16 @@ ENV DATABASE_URL="postgresql://temp:temp@temp:5432/temp"
 
 Esta variável é apenas para o build funcionar. A `DATABASE_URL` real deve ser configurada nas variáveis de ambiente do EasyPanel.
 
+### Erro "useSearchParams() should be wrapped in a suspense boundary"
+Este erro ocorre quando `useSearchParams()` é usado sem um Suspense boundary no Next.js 15+.
+
+**Solução**: O componente já foi corrigido envolvendo `useSearchParams()` com `<Suspense>`:
+```tsx
+<Suspense fallback={<div>Carregando...</div>}>
+  <ComponenteQueUsaSearchParams />
+</Suspense>
+```
+
 ### Erro de Autenticação
 - Verifique `NEXTAUTH_SECRET` e `NEXTAUTH_URL`
 - Confirme se as credenciais Firebase estão corretas
