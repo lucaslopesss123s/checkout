@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, use, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCheckoutTracking } from '@/hooks/use-checkout-tracking';
 
 interface CheckoutPageProps {
   params: Promise<{ id: string }>;
@@ -14,6 +15,7 @@ interface CheckoutPageProps {
 
 export default function CheckoutPage({ params }: CheckoutPageProps) {
   const { id } = use(params);
+  const { startTracking, updateStep, updateCustomer, updateItems, stopTracking } = useCheckoutTracking();
   
   const [customerData, setCustomerData] = useState({
     email: '',
@@ -46,16 +48,55 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
 
   const [addressLoaded, setAddressLoaded] = useState(false);
 
+  // Inicializar rastreamento quando a página carregar
+  useEffect(() => {
+    startTracking({
+      etapa_atual: 'carrinho',
+      itens: [], // Será atualizado quando os dados do produto forem carregados
+      valor_total: 0
+    });
+    
+    // Cleanup ao sair da página
+    return () => {
+      stopTracking();
+    };
+  }, []);
+
   const handleCustomerChange = (field: string, value: string | boolean) => {
-    setCustomerData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...customerData, [field]: value };
+    setCustomerData(updatedData);
+    
+    // Atualizar rastreamento com dados do cliente
+    updateCustomer(
+      updatedData.name || undefined,
+      updatedData.email || undefined,
+      updatedData.telephone || undefined
+    );
+    
+    // Se preencheu dados básicos, atualizar etapa
+    if (updatedData.name && (updatedData.email || updatedData.telephone)) {
+      updateStep('dados_pessoais');
+    }
   };
 
   const handleAddressChange = (field: string, value: string | boolean) => {
-    setAddressData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...addressData, [field]: value };
+    setAddressData(updatedData);
+    
+    // Se preencheu endereço completo, atualizar etapa
+    if (updatedData.zipCode && updatedData.street && updatedData.city) {
+      updateStep('endereco');
+    }
   };
 
   const handlePaymentChange = (field: string, value: string) => {
-    setPaymentData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...paymentData, [field]: value };
+    setPaymentData(updatedData);
+    
+    // Se selecionou método de pagamento, atualizar etapa
+    if (updatedData.method) {
+      updateStep('pagamento');
+    }
   };
 
   const handleCepChange = async (cep: string) => {

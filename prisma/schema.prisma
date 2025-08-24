@@ -325,3 +325,35 @@ model Dominios {
   @@index([status])
   @@index([dns_verificado])
 }
+
+// 18 - CheckoutSession (sessões de checkout em tempo real)
+model CheckoutSession {
+  id                String   @id @default(uuid())
+  id_loja           String   // ID da loja
+  session_id        String   @unique // ID único da sessão
+  // Dados do cliente
+  nome              String?  // Nome do cliente ("Cliente Anônimo" se não informado)
+  email             String?
+  telefone          String?
+  // Estado atual do checkout
+  etapa_atual       String   @default("carrinho") // carrinho, dados_pessoais, endereco, pagamento, revisao, finalizado
+  // Produtos no carrinho
+  itens             Json     // Array de objetos com produtos e quantidades
+  valor_total       Float?
+  // Dados de rastreamento
+  ip_cliente        String?
+  user_agent        String?
+  entrada_em        DateTime @default(now()) // Quando entrou no checkout
+  ultima_atividade  DateTime @default(now()) // Última atividade registrada
+  saida_em          DateTime? // Quando saiu do checkout (null = ainda ativo)
+  ativo             Boolean  @default(true) // Se a sessão está ativa
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([id_loja])
+  @@index([session_id])
+  @@index([ativo])
+  @@index([etapa_atual])
+  @@index([entrada_em])
+}

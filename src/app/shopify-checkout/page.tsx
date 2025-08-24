@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCheckoutTracking } from '@/hooks/use-checkout-tracking';
 
 interface Product {
   id: string;
@@ -45,6 +46,15 @@ export default function ShopifyCheckoutPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Hook de rastreamento
+  const {
+    startTracking,
+    updateStep,
+    updateCustomer,
+    updateItems,
+    stopTracking
+  } = useCheckoutTracking({ autoTrack: false });
   
   const [customerData, setCustomerData] = useState({
     email: '',
@@ -138,6 +148,17 @@ export default function ShopifyCheckoutPage() {
         
         setCheckoutData(mappedData);
         
+        // Iniciar rastreamento com dados iniciais
+        startTracking({
+          etapa_atual: 'carrinho',
+          itens: mappedData.products.map(p => ({
+            nome: p.title,
+            quantidade: p.quantity,
+            preco: p.price
+          })),
+          valor_total: mappedData.total_price
+        });
+        
         // Carregar configurações de checkout
         loadCheckoutSettings(decodedData.shop_domain);
         
@@ -198,6 +219,9 @@ export default function ShopifyCheckoutPage() {
   // useEffect para salvar carrinho quando usuário sair da página
   useEffect(() => {
     const handleBeforeUnload = () => {
+      // Parar rastreamento ao sair da página
+      stopTracking();
+      
       if (sessionId && lojaId && (customerData.email || customerData.telephone)) {
         // Usar sendBeacon para garantir que a requisição seja enviada
         const carrinhoData = {
@@ -350,24 +374,44 @@ export default function ShopifyCheckoutPage() {
       }
     }
     
-    setCustomerData(prev => ({ ...prev, [field]: formattedValue }));
+    const updatedData = { ...customerData, [field]: formattedValue };
+    setCustomerData(updatedData);
+    
+    // Atualizar rastreamento com dados do cliente
+    updateCustomer(
+      updatedData.name || undefined,
+      updatedData.email || undefined,
+      updatedData.telephone || undefined
+    );
     
     // Verificar se a primeira etapa foi completada (nome e email/telefone)
-    const updatedData = { ...customerData, [field]: formattedValue };
     const etapaCompleta = updatedData.name && (updatedData.email || updatedData.telephone);
     
     if (etapaCompleta && !primeiraEtapaCompleta) {
       console.log('handleCustomerChange: Primeira etapa completada');
       setPrimeiraEtapaCompleta(true);
+      updateStep('dados_pessoais');
     }
   };
 
   const handleAddressChange = (field: string, value: string | boolean) => {
-    setAddressData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...addressData, [field]: value };
+    setAddressData(updatedData);
+    
+    // Se preencheu endereço completo, atualizar etapa
+    if (updatedData.zipCode && updatedData.street && updatedData.city) {
+      updateStep('endereco');
+    }
   };
 
   const handlePaymentChange = (field: string, value: string) => {
-    setPaymentData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...paymentData, [field]: value };
+    setPaymentData(updatedData);
+    
+    // Se selecionou método de pagamento, atualizar etapa
+    if (updatedData.method) {
+      updateStep('pagamento');
+    }
   };
 
   // useEffect para salvamento automático com debounce

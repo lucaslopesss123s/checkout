@@ -4,8 +4,9 @@ import { SalesCards } from "@/components/dashboard/sales-cards";
 import { ConversionFunnel } from "@/components/dashboard/conversion-funnel";
 import { PaymentMethods } from "@/components/dashboard/payment-methods";
 import { AiOptimizer } from "@/components/dashboard/ai-optimizer";
-import { OnlineUsers } from "@/components/dashboard/online-users";
+import { UsuariosOnline } from "@/components/dashboard/usuarios-online";
 import { useEffect, useState } from 'react';
+import { useStore } from '@/contexts/store-context';
 
 interface User {
   id: string;
@@ -15,6 +16,7 @@ interface User {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
+  const { store } = useStore();
 
   useEffect(() => {
     // Obter dados do usuário do localStorage
@@ -47,7 +49,7 @@ export default function DashboardPage() {
       </div>
       <div className="space-y-4">
         <SalesCards />
-        <OnlineUsers />
+        <UsuariosOnline id_loja={store?.id || '5d38b556-cb47-4493-8363-4b655b416df9'} />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <div className="col-span-12 md:col-span-4">
             <ConversionFunnel />
