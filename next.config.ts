@@ -9,6 +9,29 @@ const nextConfig: NextConfig = {
   // Configurações de build
   output: 'standalone',
   
+  // Configurações de CORS
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
+      },
+    ];
+  },
+  
   // Ignorar erros de lint durante build (temporário)
   eslint: {
     ignoreDuringBuilds: true,
