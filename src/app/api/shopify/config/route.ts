@@ -73,6 +73,12 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Determinar URLs baseadas no ambiente e host
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    const isLocalhost = request.url.includes('localhost')
+    const useLocalhost = isDevelopment || isLocalhost
+    const baseUrl = useLocalhost ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL || 'https://checkout.zollim.store')
+
     const response = NextResponse.json({
       success: true,
       configured: true,
@@ -81,8 +87,8 @@ export async function GET(request: NextRequest) {
       domain: lojaShopify.dominio_api,
       checkout_configured: !!checkout,
       produtos_count: produtosCount,
-      checkout_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'}/checkout/shopify`,
-      api_endpoint: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'}/api/shopify/checkout`,
+      checkout_url: `${baseUrl}/checkout/shopify`,
+      api_endpoint: `${baseUrl}/api/shopify/checkout`,
       theme: checkout?.Tema || 'default',
       config: checkout ? {
         Tema: checkout.Tema,

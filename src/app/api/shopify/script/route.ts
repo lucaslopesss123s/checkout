@@ -348,9 +348,12 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Usar domínio personalizado verificado
-      const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
-      const configBaseUrl = `https://checkout.${dominio.dominio}`
+      // Usar URL baseada no ambiente e host
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      const isLocalhost = request.url.includes('localhost')
+      const useLocalhost = isDevelopment || isLocalhost
+      const checkoutBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
+      const configBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
 
       // Gerar o script JavaScript dinamicamente
       const script = generateScriptContent(storeId, dominio.dominio, checkoutBaseUrl, configBaseUrl)
@@ -410,9 +413,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Usar domínio personalizado verificado
-    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
-    const configBaseUrl = `https://checkout.${dominio.dominio}`
+    // Usar URL baseada no ambiente e host
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    const isLocalhost = request.url.includes('localhost')
+    const useLocalhost = isDevelopment || isLocalhost
+    const checkoutBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
+    const configBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
 
     // Gerar o script JavaScript dinamicamente usando a função generateScriptContent
     const script = generateScriptContent(lojaShopify.id_loja, dominio.dominio, checkoutBaseUrl, configBaseUrl)
