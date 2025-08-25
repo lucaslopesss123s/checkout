@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, Search } from "lucide-react"
+import { RefreshCw, Search } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useStore } from "@/contexts/store-context"
+import { useToast } from "@/hooks/use-toast"
 
 interface Product {
   id: string;
@@ -26,8 +27,10 @@ interface Product {
 export default function ProdutosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { selectedStore } = useStore();
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchProducts();
@@ -49,6 +52,48 @@ export default function ProdutosPage() {
       console.error('Erro ao buscar produtos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncProducts = async () => {
+    if (!selectedStore) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nenhuma loja selecionada."
+      });
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/produtos/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ storeId: selectedStore.id }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Sincronização concluída",
+          description: `${data.added || 0} produtos adicionados, ${data.updated || 0} atualizados, ${data.removed || 0} removidos.`
+        });
+        await fetchProducts(); // Recarregar produtos
+      } else {
+        throw new Error(data.error || 'Erro na sincronização');
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro na sincronização",
+        description: error.message || "Não foi possível sincronizar os produtos."
+      });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -85,10 +130,9 @@ export default function ProdutosPage() {
             Gerencie seus produtos e assinaturas.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/produtos/novo">
-            <PlusCircle className="mr-2 h-4 w-4" /> Criar Produto
-          </Link>
+        <Button onClick={syncProducts} disabled={syncing}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Sincronizando...' : 'Atualizar Produtos'}
         </Button>
       </div>
 
