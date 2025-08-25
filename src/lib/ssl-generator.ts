@@ -15,7 +15,10 @@ export async function ensureDirectoryExists(dirPath: string) {
 // Função para gerar certificado SSL auto-assinado usando Node.js crypto
 export async function generateSelfSignedCertificate(domain: string) {
   try {
-    const sslDir = path.join(process.cwd(), 'ssl', domain)
+    // Usar diretório temporário ou relativo com permissões adequadas
+    const sslDir = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', 'ssl-certificates', domain)
+      : path.join(process.cwd(), 'ssl-certificates', domain)
     await ensureDirectoryExists(sslDir)
 
     const keyPath = path.join(sslDir, 'private.key')
@@ -93,7 +96,9 @@ ${Buffer.from(JSON.stringify(certData)).toString('base64').match(/.{1,64}/g)?.jo
 // Função para verificar se um certificado existe e é válido
 export async function checkCertificateExists(domain: string): Promise<boolean> {
   try {
-    const sslDir = path.join(process.cwd(), 'ssl', domain)
+    const sslDir = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', 'ssl-certificates', domain)
+      : path.join(process.cwd(), 'ssl-certificates', domain)
     const keyPath = path.join(sslDir, 'private.key')
     const certPath = path.join(sslDir, 'certificate.crt')
 
@@ -107,7 +112,9 @@ export async function checkCertificateExists(domain: string): Promise<boolean> {
 
 // Função para ler certificado existente
 export async function readExistingCertificate(domain: string) {
-  const sslDir = path.join(process.cwd(), 'ssl', domain)
+  const sslDir = process.env.NODE_ENV === 'production' 
+    ? path.join('/tmp', 'ssl-certificates', domain)
+    : path.join(process.cwd(), 'ssl-certificates', domain)
   const keyPath = path.join(sslDir, 'private.key')
   const certPath = path.join(sslDir, 'certificate.crt')
   const chainPath = path.join(sslDir, 'chain.pem')
