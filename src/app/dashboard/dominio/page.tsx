@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2 } from 'lucide-react'
+import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Shield } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useStore } from '@/contexts/store-context'
+import Link from 'next/link'
 
 interface Domain {
   id: string
@@ -33,6 +34,7 @@ export default function DominioPage() {
   const [isVerifying, setIsVerifying] = useState<string | null>(null)
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [isActivatingSSL, setIsActivatingSSL] = useState<string | null>(null)
 
   useEffect(() => {
     if (selectedStore) {
@@ -225,6 +227,42 @@ export default function DominioPage() {
     })
   }
 
+  const activateSSL = async (domainId: string) => {
+    setIsActivatingSSL(domainId)
+    try {
+      const response = await fetch('/api/ssl/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: 'SSL Ativado',
+          description: 'Certificado SSL ativado com sucesso!'
+        })
+        loadDomains() // Recarregar domínios
+      } else {
+        toast({
+          title: 'Erro',
+          description: data.message || 'Erro ao ativar SSL',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao ativar SSL:', error)
+      toast({
+        title: 'Erro',
+        description: 'Erro ao ativar SSL. Tente novamente.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsActivatingSSL(null)
+    }
+  }
+
   const deleteDomain = async (domainId: string) => {
     if (!selectedStore) {
       toast({
@@ -284,14 +322,17 @@ export default function DominioPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Globe className="h-8 w-8" />
-          Gerenciar Domínios
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Configure seus domínios personalizados para o checkout
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Globe className="h-8 w-8" />
+            Gerenciar Domínios
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Configure seus domínios personalizados para o checkout
+          </p>
+        </div>
+
       </div>
 
       {!selectedStore && (
@@ -379,6 +420,21 @@ export default function DominioPage() {
                         )}
                         {isVerifying === domain.id ? 'Verificando...' : 'Verificar'}
                       </Button>
+                      {domain.status === 'verified' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => activateSSL(domain.id)}
+                          disabled={isActivatingSSL === domain.id}
+                        >
+                          {isActivatingSSL === domain.id ? (
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Shield className="h-3 w-3 mr-1" />
+                          )}
+                          {isActivatingSSL === domain.id ? 'Ativando...' : 'Ativar SSL'}
+                        </Button>
+                      )}
                       <Button
                         variant="destructive"
                         size="sm"
@@ -402,7 +458,7 @@ export default function DominioPage() {
                           <CheckCircle className="h-4 w-4" />
                           <span className="font-medium">Domínio verificado com sucesso!</span>
                         </div>
-                        <p className="text-sm text-green-700">
+                        <p className="text-sm text-green-700 mb-3">
                           Seu checkout está disponível em: 
                           <a 
                             href={`https://checkout.${domain.domain}`} 
@@ -414,6 +470,7 @@ export default function DominioPage() {
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </p>
+
                       </div>
                       
 

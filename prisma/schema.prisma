@@ -319,17 +319,22 @@ model Dominios {
   status        String   @default("pending") // pending, verified, failed, inactive
   dns_verificado Boolean @default(false) // Se o DNS foi verificado com sucesso
   ssl_ativo     Boolean @default(false) // Se o SSL está ativo
+  ssl_certificate_id String? @unique // ID do certificado SSL associado
   ultima_verificacao DateTime? // Última vez que foi verificado
   configuracao_dns Json? // Configurações DNS necessárias
   erro_verificacao String? // Último erro de verificação, se houver
   ativo         Boolean @default(true) // Se o domínio está ativo
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  // Relacionamento com certificado SSL
+  ssl_certificate SSL_certificates? @relation(fields: [ssl_certificate_id], references: [id])
 
   @@index([id_loja])
   @@index([dominio])
   @@index([status])
   @@index([dns_verificado])
+  @@index([ssl_certificate_id])
 }
 
 // 18 - CheckoutSession (sessões de checkout em tempo real)
@@ -362,4 +367,47 @@ model CheckoutSession {
   @@index([ativo])
   @@index([etapa_atual])
   @@index([entrada_em])
+}
+
+// 19 - SSL_certificates (certificados SSL)
+model SSL_certificates {
+  id                    String   @id @default(uuid())
+  domain                String   @unique // Domínio do certificado (ex: checkout.meusite.com.br)
+  certificate           String   @db.Text // Certificado em formato PEM
+  private_key           String   @db.Text // Chave privada em formato PEM
+  certificate_chain     String?  @db.Text // Cadeia de certificados
+  cert_path             String?  // Caminho do arquivo do certificado
+  key_path              String?  // Caminho do arquivo da chave privada
+  chain_path            String?  // Caminho do arquivo da cadeia
+  status                String   @default("active") // active, expired, revoked, pending
+  provider              String   @default("letsencrypt") // letsencrypt, custom, etc
+  expires_at            DateTime // Data de expiração
+  auto_renew            Boolean  @default(true) // Se deve renovar automaticamente
+  last_renewal_attempt  DateTime? // Última tentativa de renovação
+  renewed_at            DateTime? // Última renovação bem-sucedida
+  renewal_error         String?  // Último erro de renovação
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relacionamento com domínio
+  dominio               Dominios?
+
+  @@index([domain])
+  @@index([status])
+  @@index([expires_at])
+  @@index([auto_renew])
+}
+
+// 20 - SSL_renewal_logs (logs de renovação SSL)
+model SSL_renewal_logs {
+  id                    String   @id @default(uuid())
+  executed_at           DateTime @default(now()) // Quando foi executado
+  certificates_processed Int     @default(0) // Quantos certificados foram processados
+  successful_renewals   Int      @default(0) // Quantas renovações foram bem-sucedidas
+  failed_renewals       Int      @default(0) // Quantas renovações falharam
+  details               Json?    // Detalhes da execução (sucessos e falhas)
+  execution_time_ms     Int?     // Tempo de execução em milissegundos
+  createdAt             DateTime @default(now())
+
+  @@index([executed_at])
 }
