@@ -36,6 +36,9 @@ export default function DominioPage() {
   useEffect(() => {
     if (selectedStore) {
       loadDomains()
+    } else {
+      // Limpar domínios quando não há loja selecionada
+      setDomains([])
     }
   }, [selectedStore])
 
@@ -245,6 +248,16 @@ export default function DominioPage() {
         </p>
       </div>
 
+      {!selectedStore && (
+        <Alert className="bg-yellow-50 border-yellow-200">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800">
+            <strong>Selecione uma loja</strong><br/>
+            Para gerenciar domínios, você precisa selecionar uma loja no menu superior.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Adicionar novo domínio */}
       <Card>
         <CardHeader>
@@ -262,11 +275,12 @@ export default function DominioPage() {
                 placeholder="meusite.com.br"
                 value={newDomain}
                 onChange={(e) => setNewDomain(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addDomain()}
+                onKeyPress={(e) => e.key === 'Enter' && selectedStore && addDomain()}
+                disabled={!selectedStore}
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={addDomain} disabled={isLoading}>
+              <Button onClick={addDomain} disabled={isLoading || !selectedStore}>
                 {isLoading ? 'Adicionando...' : 'Adicionar'}
               </Button>
             </div>
