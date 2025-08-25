@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code } from 'lucide-react'
+import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useStore } from '@/contexts/store-context'
 
@@ -32,6 +32,7 @@ export default function DominioPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isVerifying, setIsVerifying] = useState<string | null>(null)
   const { toast } = useToast()
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   useEffect(() => {
     if (selectedStore) {
@@ -224,6 +225,51 @@ export default function DominioPage() {
     })
   }
 
+  const deleteDomain = async (domainId: string) => {
+    if (!selectedStore) {
+      toast({
+        title: 'Erro',
+        description: 'Nenhuma loja selecionada.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (!confirm('Tem certeza que deseja excluir este domínio?')) {
+      return
+    }
+
+    setIsDeleting(domainId)
+    try {
+      const response = await fetch(`/api/dominios?id=${domainId}&id_loja=${selectedStore.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setDomains(prev => prev.filter(domain => domain.id !== domainId))
+        toast({
+          title: 'Domínio removido',
+          description: 'Domínio removido com sucesso.'
+        })
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: 'Erro',
+          description: errorData.error || 'Erro ao remover domínio.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao remover domínio. Tente novamente.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
   const getStatusBadge = (status: Domain['status']) => {
     switch (status) {
       case 'verified':
@@ -288,157 +334,7 @@ export default function DominioPage() {
         </CardContent>
       </Card>
 
-      {/* Instruções de configuração DNS */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuração DNS</CardTitle>
-          <CardDescription>
-            Escolha uma das opções abaixo para configurar seu domínio
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Importante:</strong> Configure os registros DNS no seu provedor de domínio antes de verificar.
-            </AlertDescription>
-          </Alert>
-          
-          {/* Opção 1: CNAME */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                Opção 1 - CNAME (Recomendado)
-              </Badge>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <Label className="text-sm font-medium">Tipo de Registro</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">CNAME</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('CNAME')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Nome/Host</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('checkout')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Valor/Destino</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout.lojafacil.com</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('checkout.lojafacil.com')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded">
-              <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro CNAME:</p>
-              <p className="mt-1">• <strong>Nome:</strong> checkout</p>
-              <p>• <strong>Valor:</strong> checkout.lojafacil.com</p>
-              <p className="mt-2">Resultado: <strong>checkout.meusite.com.br</strong></p>
-            </div>
-          </div>
-          
-          <Separator className="my-6" />
-          
-          {/* Opção 2: Registro A */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                Opção 2 - Registro A
-              </Badge>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <Label className="text-sm font-medium">Tipo de Registro</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">A</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('A')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Nome/Host</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">checkout</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('checkout')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Valor/IP</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">181.41.200.99</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard('181.41.200.99')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  * IP da VPS onde o sistema está hospedado
-                </p>
-              </div>
-            </div>
-            
-            <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
-              <p><strong>Exemplo:</strong> Para o domínio "meusite.com.br", crie um registro A:</p>
-              <p className="mt-1">• <strong>Nome:</strong> checkout</p>
-              <p>• <strong>Valor:</strong> 181.41.200.99 (IP da VPS)</p>
-              <p className="mt-2">Resultado: <strong>checkout.meusite.com.br</strong></p>
-            </div>
-          </div>
-          
-          <Alert className="bg-yellow-50 border-yellow-200">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              <strong>Qual opção escolher?</strong><br/>
-              • <strong>CNAME (Recomendado):</strong> Mais fácil de configurar e mantém a configuração automática<br/>
-              • <strong>Registro A:</strong> Use apenas se seu provedor DNS não suportar CNAME ou por preferência técnica
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+
 
       {/* Lista de domínios */}
       <Card>
@@ -483,6 +379,19 @@ export default function DominioPage() {
                         )}
                         {isVerifying === domain.id ? 'Verificando...' : 'Verificar'}
                       </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteDomain(domain.id)}
+                        disabled={isDeleting === domain.id}
+                      >
+                        {isDeleting === domain.id ? (
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3 mr-1" />
+                        )}
+                        {isDeleting === domain.id ? 'Removendo...' : 'Excluir'}
+                      </Button>
                     </div>
                   </div>
                   
@@ -507,58 +416,7 @@ export default function DominioPage() {
                         </p>
                       </div>
                       
-                      {/* Script de Integração Shopify */}
-                      <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                        <div className="flex items-center gap-2 text-blue-800 mb-3">
-                          <Code className="h-4 w-4" />
-                          <span className="font-medium">Script de Integração Shopify</span>
-                        </div>
-                        <p className="text-sm text-blue-700 mb-3">
-                          Use este script personalizado em sua loja Shopify para redirecionar o checkout para seu domínio personalizado.
-                        </p>
-                        
-                        <div className="space-y-3">
-                          <div>
-                            <Label className="text-sm font-medium text-blue-800">URL do Script</Label>
-                            <div className="flex items-center gap-2 mt-1">
-                              <code className="bg-white px-2 py-1 rounded text-sm border flex-1 text-blue-900">
-                                {`${window.location.origin}/api/shopify/script?domain=${domain.domain}`}
-                              </code>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => copyToClipboard(`${window.location.origin}/api/shopify/script?domain=${domain.domain}`)}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm font-medium text-blue-800">Código para adicionar no theme.liquid</Label>
-                            <div className="flex items-center gap-2 mt-1">
-                              <code className="bg-white px-2 py-1 rounded text-sm border flex-1 text-blue-900 font-mono">
-                                {`<script src="${window.location.origin}/api/shopify/script?domain=${domain.domain}"></script>`}
-                              </code>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => copyToClipboard(`<script src="${window.location.origin}/api/shopify/script?domain=${domain.domain}"></script>`)}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded mt-3">
-                          <p><strong>Instruções:</strong></p>
-                          <p>1. Acesse Admin > Temas > Ações > Editar código</p>
-                          <p>2. Abra o arquivo theme.liquid</p>
-                          <p>3. Adicione o código acima antes da tag &lt;/body&gt;</p>
-                          <p>4. Salve as alterações</p>
-                        </div>
-                      </div>
+
                     </div>
                   )}
                   

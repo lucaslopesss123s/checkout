@@ -193,10 +193,9 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
-    // Marcar como inativo ao invés de deletar
-    await prisma.dominios.update({
-      where: { id },
-      data: { ativo: false }
+    // Deletar fisicamente do banco de dados para permitir reutilização
+    await prisma.dominios.delete({
+      where: { id }
     })
     
     return NextResponse.json({ message: 'Domínio removido com sucesso' })
