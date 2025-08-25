@@ -62,7 +62,7 @@ async function saveCertificate(domain: string, cert: string, key: string, chain:
 
 // Função para renovar um certificado específico
 async function renewCertificate(certificateId: string) {
-  const certificate = await prisma.ssl_certificates.findUnique({
+  const certificate = await prisma.sSL_certificates.findUnique({
     where: { id: certificateId },
     include: {
       dominio: true
@@ -127,7 +127,7 @@ async function renewCertificate(certificateId: string) {
   }
 
   // Gerar nova chave privada para o certificado
-  const [key, csr] = await acme.forge.createCsr({
+  const [key, csr] = await acme.crypto.createCsr({
     commonName: domain
   })
 
@@ -151,7 +151,7 @@ async function renewCertificate(certificateId: string) {
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
 
   // Atualizar certificado no banco de dados
-  const updatedCert = await prisma.ssl_certificates.update({
+  const updatedCert = await prisma.sSL_certificates.update({
     where: { id: certificateId },
     data: {
       certificate: newCertificate,
@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
     const daysBeforeExpiry = parseInt(searchParams.get('days') || '30')
     
     // Buscar certificados que expiram em X dias
-    const expiringCerts = await prisma.ssl_certificates.findMany({
+    const expiringCerts = await prisma.sSL_certificates.findMany({
       where: {
         status: 'active',
         auto_renew: true,
@@ -307,7 +307,7 @@ export async function PUT(request: NextRequest) {
     const { daysBeforeExpiry = 30, maxRenewals = 5 } = await request.json()
     
     // Buscar certificados que precisam ser renovados
-    const expiringCerts = await prisma.ssl_certificates.findMany({
+    const expiringCerts = await prisma.sSL_certificates.findMany({
       where: {
         status: 'active',
         auto_renew: true,

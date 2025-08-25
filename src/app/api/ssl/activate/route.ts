@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe certificado válido
-    const existingCert = await prisma.ssl_certificates.findFirst({
+    const existingCert = await prisma.sSL_certificates.findFirst({
       where: {
         domain: fullDomain,
         status: 'active',
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       accountKey = await fs.readFile(accountKeyPath, 'utf8')
     } catch {
       // Gerar nova chave de conta se não existir
-      accountKey = await acme.forge.createPrivateKey()
+      accountKey = await acme.crypto.createPrivateRsaKey()
       await ensureDirectoryExists(path.dirname(accountKeyPath))
       await fs.writeFile(accountKeyPath, accountKey)
     }
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gerar chave privada para o certificado
-    const [key, csr] = await acme.forge.createCsr({
+    const [key, csr] = await acme.crypto.createCsr({
       commonName: fullDomain
     })
 
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
 
     // Salvar no banco de dados
-    const sslCert = await prisma.ssl_certificates.create({
+    const sslCert = await prisma.sSL_certificates.create({
       data: {
         domain: fullDomain,
         certificate: certificate,

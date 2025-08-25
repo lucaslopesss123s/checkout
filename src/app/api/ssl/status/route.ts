@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
     let certificates = []
     
     if (certificateIds && certificateIds.length > 0) {
-      certificates = await prisma.ssl_certificates.findMany({
+     const certificates = await prisma.sSL_certificates.findMany({
         where: {
           id: { in: certificateIds }
         },

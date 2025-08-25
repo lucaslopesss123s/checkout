@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     let recentLogs = null
     if (includeLogs) {
       try {
-        recentLogs = await prisma.ssl_renewal_logs.findMany({
+        recentLogs = await prisma.sSL_renewal_logs.findMany({
           take: logsLimit,
           orderBy: {
             executed_at: 'desc'

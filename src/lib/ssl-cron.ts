@@ -127,7 +127,7 @@ async function renewCertificate(certificate: any): Promise<{
     }
 
     // Gerar nova chave privada para o certificado
-    const [key, csr] = await acme.forge.createCsr({
+    const [key, csr] = await acme.crypto.createCsr({
       commonName: domain
     })
 
@@ -151,7 +151,7 @@ async function renewCertificate(certificate: any): Promise<{
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
 
     // Atualizar certificado no banco de dados
-    const updatedCert = await prisma.ssl_certificates.update({
+    const updatedCert = await prisma.sSL_certificates.update({
       where: { id: certificate.id },
       data: {
         certificate: newCertificate,
@@ -188,7 +188,7 @@ async function renewCertificate(certificate: any): Promise<{
     
     // Registrar falha no banco de dados
     try {
-      await prisma.ssl_certificates.update({
+      await prisma.sSL_certificates.update({
         where: { id: certificate.id },
         data: {
           last_renewal_attempt: new Date(),
@@ -212,7 +212,7 @@ async function runSSLRenewalCron() {
   
   try {
     // Buscar certificados que precisam ser renovados
-    const expiringCerts = await prisma.ssl_certificates.findMany({
+    const expiringCerts = await prisma.sSL_certificates.findMany({
       where: {
         status: 'active',
         auto_renew: true,
@@ -298,7 +298,7 @@ async function runSSLRenewalCron() {
     
     // Registrar log da execução
     try {
-      await prisma.ssl_renewal_logs.create({
+      await prisma.sSL_renewal_logs.create({
         data: {
           executed_at: new Date(),
           certificates_processed: results.total,
