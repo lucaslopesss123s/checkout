@@ -1,6 +1,6 @@
 import cron from 'node-cron'
 import prisma from '@/lib/prisma'
-import { acme } from 'acme-client'
+import acme from 'acme-client'
 import fs from 'fs/promises'
 import path from 'path'
 

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { acme } from 'acme-client'
+import acme from 'acme-client'
 import prisma from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
+import { generateSelfSignedCertificate, checkCertificateExists, readExistingCertificate } from '@/lib/ssl-generator'
 
 // Função para adicionar cabeçalhos CORS
 function addCorsHeaders(response: NextResponse) {
@@ -18,30 +19,7 @@ export async function OPTIONS(request: NextRequest) {
   return addCorsHeaders(response)
 }
 
-// Função para criar diretório se não existir
-async function ensureDirectoryExists(dirPath: string) {
-  try {
-    await fs.access(dirPath)
-  } catch {
-    await fs.mkdir(dirPath, { recursive: true })
-  }
-}
 
-// Função para salvar certificado no sistema de arquivos
-async function saveCertificate(domain: string, cert: string, key: string, chain: string) {
-  const certDir = path.join(process.cwd(), 'ssl-certificates', domain)
-  await ensureDirectoryExists(certDir)
-  
-  await fs.writeFile(path.join(certDir, 'cert.pem'), cert)
-  await fs.writeFile(path.join(certDir, 'key.pem'), key)
-  await fs.writeFile(path.join(certDir, 'chain.pem'), chain)
-  
-  return {
-    certPath: path.join(certDir, 'cert.pem'),
-    keyPath: path.join(certDir, 'key.pem'),
-    chainPath: path.join(certDir, 'chain.pem')
-  }
-}
 
 // Função para verificar se o domínio aponta para o servidor
 async function verifyDomainPointing(domain: string): Promise<boolean> {
@@ -131,104 +109,34 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    // Configurar cliente ACME (Let's Encrypt)
-    const accountKeyPath = path.join(process.cwd(), 'ssl-certificates', 'account-key.pem')
-    let accountKey
-    
-    try {
-      accountKey = await fs.readFile(accountKeyPath, 'utf8')
-    } catch {
-      // Gerar nova chave de conta se não existir
-      accountKey = await acme.crypto.createPrivateRsaKey()
-      await ensureDirectoryExists(path.dirname(accountKeyPath))
-      await fs.writeFile(accountKeyPath, accountKey)
+    // Verificar se já existe certificado local
+    const certExists = await checkCertificateExists(fullDomain)
+    let certificateData
+
+    if (certExists) {
+      // Usar certificado existente
+      certificateData = await readExistingCertificate(fullDomain)
+      certificateData.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 ano
+    } else {
+      // Gerar novo certificado auto-assinado
+      console.log(`Gerando certificado SSL auto-assinado para ${fullDomain}...`)
+      certificateData = await generateSelfSignedCertificate(fullDomain)
     }
-
-    const client = new acme.Client({
-      directoryUrl: process.env.NODE_ENV === 'production' 
-        ? acme.directory.letsencrypt.production 
-        : acme.directory.letsencrypt.staging,
-      accountKey
-    })
-
-    // Criar ou usar conta existente
-    const account = await client.createAccount({
-      termsOfServiceAgreed: true,
-      contact: [`mailto:admin@${dominio.dominio}`]
-    })
-
-    // Criar ordem para o certificado
-    const order = await client.createOrder({
-      identifiers: [
-        { type: 'dns', value: fullDomain }
-      ]
-    })
-
-    // Obter autorizações
-    const authorizations = await client.getAuthorizations(order)
-    
-    for (const authz of authorizations) {
-      // Usar desafio HTTP-01
-      const challenge = authz.challenges.find(c => c.type === 'http-01')
-      if (!challenge) {
-        throw new Error('Desafio HTTP-01 não disponível')
-      }
-
-      // Obter resposta do desafio
-      const keyAuthorization = await client.getChallengeKeyAuthorization(challenge)
-      
-      // Salvar arquivo de desafio
-      const challengeDir = path.join(process.cwd(), 'public', '.well-known', 'acme-challenge')
-      await ensureDirectoryExists(challengeDir)
-      await fs.writeFile(
-        path.join(challengeDir, challenge.token),
-        keyAuthorization
-      )
-
-      // Verificar desafio
-      await client.verifyChallenge(authz, challenge)
-      
-      // Aguardar validação
-      await client.completeChallenge(challenge)
-      await client.waitForValidStatus(authz)
-    }
-
-    // Gerar chave privada para o certificado
-    const [key, csr] = await acme.crypto.createCsr({
-      commonName: fullDomain
-    })
-
-    // Finalizar ordem e obter certificado
-    await client.finalizeOrder(order, csr)
-    const cert = await client.getCertificate(order)
-
-    // Extrair certificado e cadeia
-    const certLines = cert.split('\n')
-    const certStart = certLines.findIndex(line => line.includes('-----BEGIN CERTIFICATE-----'))
-    const certEnd = certLines.findIndex(line => line.includes('-----END CERTIFICATE-----'), certStart) + 1
-    const chainStart = certLines.findIndex(line => line.includes('-----BEGIN CERTIFICATE-----'), certEnd)
-    
-    const certificate = certLines.slice(certStart, certEnd).join('\n')
-    const chain = certLines.slice(chainStart).join('\n')
-
-    // Salvar certificado no sistema de arquivos
-    const certPaths = await saveCertificate(fullDomain, certificate, key, chain)
-
-    // Calcular data de expiração (Let's Encrypt emite por 90 dias)
-    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+    // Salvar certificado no banco de dados
+    const expiresAt = certificateData.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
     // Salvar no banco de dados
     const sslCert = await prisma.sSL_certificates.create({
       data: {
         domain: fullDomain,
-        certificate: certificate,
-        private_key: key,
-        certificate_chain: chain,
-        cert_path: certPaths.certPath,
-        key_path: certPaths.keyPath,
-        chain_path: certPaths.chainPath,
+        certificate: certificateData.certificate,
+        private_key: certificateData.privateKey,
+        certificate_chain: certificateData.certificateChain,
+        cert_path: certificateData.certPath,
+        key_path: certificateData.keyPath,
+        chain_path: certificateData.chainPath,
         status: 'active',
-        provider: 'letsencrypt',
+        provider: 'self-signed',
         expires_at: expiresAt,
         auto_renew: true
       }
@@ -243,16 +151,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Limpar arquivos de desafio
-    try {
-      const challengeDir = path.join(process.cwd(), 'public', '.well-known', 'acme-challenge')
-      const files = await fs.readdir(challengeDir)
-      for (const file of files) {
-        await fs.unlink(path.join(challengeDir, file))
-      }
-    } catch (error) {
-      console.warn('Erro ao limpar arquivos de desafio:', error)
-    }
+    console.log(`Certificado SSL ativado com sucesso para ${fullDomain}`)
 
     const response = NextResponse.json({
       success: true,
