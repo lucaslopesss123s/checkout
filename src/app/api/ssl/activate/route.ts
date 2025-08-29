@@ -85,25 +85,36 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    // Verificar se já existe certificado válido
+    // Verificar se já existe certificado
     const existingCert = await prisma.sSL_certificates.findFirst({
       where: {
         domain: fullDomain,
-        status: 'active',
-        expires_at: {
-          gt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Válido por mais de 7 dias
-        }
+        status: 'active'
       }
     })
 
-    if (existingCert) {
+    // Se existe certificado auto-assinado, remover automaticamente
+    if (existingCert && existingCert.provider === 'self-signed') {
+      console.log(`🗑️ Removendo certificado auto-assinado existente para ${fullDomain}...`)
+      
+      await prisma.sSL_certificates.update({
+        where: { id: existingCert.id },
+        data: { status: 'inactive' }
+      })
+      
+      console.log(`✅ Certificado auto-assinado removido. Forçando Let's Encrypt...`)
+    }
+    // Se existe certificado Let's Encrypt válido, manter
+    else if (existingCert && existingCert.provider === 'letsencrypt' && 
+             existingCert.expires_at > new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) {
       const response = NextResponse.json({
         success: true,
-        message: 'Certificado SSL já está ativo e válido',
+        message: 'Certificado SSL Let\'s Encrypt já está ativo e válido',
         certificate: {
           id: existingCert.id,
           domain: existingCert.domain,
           status: existingCert.status,
+          provider: existingCert.provider,
           expires_at: existingCert.expires_at
         }
       })

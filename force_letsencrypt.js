@@ -2,14 +2,21 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-async function forceLetsEncrypt() {
+// Configuração padrão: sempre remover certificados auto-assinados
+const AUTO_REMOVE_SELF_SIGNED = process.env.AUTO_REMOVE_SELF_SIGNED !== 'false';
+
+async function forceLetsEncrypt(targetDomain = null) {
   try {
     console.log('🔄 Forçando regeneração com Let\'s Encrypt...');
+    
+    // Determinar qual domínio usar
+    const searchDomain = targetDomain || 'zollim.store';
+    console.log(`🎯 Processando domínio: ${searchDomain}`);
     
     // Buscar o domínio
     const dominio = await prisma.dominios.findFirst({
       where: {
-        dominio: 'zollim.store'
+        dominio: searchDomain
       },
       include: {
         ssl_certificate: true
@@ -24,9 +31,10 @@ async function forceLetsEncrypt() {
     console.log('📋 Domínio encontrado:', dominio.dominio);
     console.log('   Certificado atual:', dominio.ssl_certificate?.provider || 'Nenhum');
     
-    // Remover certificado atual se for auto-assinado
-    if (dominio.ssl_certificate && dominio.ssl_certificate.provider === 'self-signed') {
-      console.log('🗑️  Removendo certificado auto-assinado...');
+    // Remover certificado atual se for auto-assinado (comportamento padrão)
+    if (dominio.ssl_certificate && dominio.ssl_certificate.provider === 'self-signed' && AUTO_REMOVE_SELF_SIGNED) {
+      console.log('🗑️  Removendo certificado auto-assinado automaticamente...');
+      console.log('   💡 Para desabilitar: export AUTO_REMOVE_SELF_SIGNED=false');
       
       // Desassociar do domínio
       await prisma.dominios.update({
@@ -43,6 +51,9 @@ async function forceLetsEncrypt() {
       });
       
       console.log('✅ Certificado auto-assinado removido');
+    } else if (dominio.ssl_certificate && dominio.ssl_certificate.provider === 'self-signed') {
+      console.log('⚠️  Certificado auto-assinado encontrado, mas remoção automática está desabilitada');
+      console.log('   💡 Para habilitar: export AUTO_REMOVE_SELF_SIGNED=true');
     }
     
     // Tentar ativar SSL novamente
@@ -100,4 +111,21 @@ async function forceLetsEncrypt() {
   }
 }
 
-forceLetsEncrypt();
+// Suporte para parâmetros de linha de comando
+const args = process.argv.slice(2);
+const targetDomain = args[0]; // Primeiro argumento é o domínio
+
+if (args.includes('--help') || args.includes('-h')) {
+  console.log('\n🔧 Uso do script force_letsencrypt.js:');
+  console.log('   node force_letsencrypt.js [dominio]');
+  console.log('\n📋 Exemplos:');
+  console.log('   node force_letsencrypt.js                    # Usa zollim.store (padrão)');
+  console.log('   node force_letsencrypt.js checkout.zollim.store');
+  console.log('   node force_letsencrypt.js meudominio.com');
+  console.log('\n⚙️  Variáveis de ambiente:');
+  console.log('   AUTO_REMOVE_SELF_SIGNED=false  # Desabilita remoção automática de certificados auto-assinados');
+  console.log('\n💡 Por padrão, certificados auto-assinados são removidos automaticamente.');
+  process.exit(0);
+}
+
+forceLetsEncrypt(targetDomain);
