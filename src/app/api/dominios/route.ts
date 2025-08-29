@@ -142,20 +142,52 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Verificar DNS antes de criar o domínio
+    const dnsResult = await verificarDNS(dominio, subdominio)
+    
     // Criar novo domínio
     const novoDominio = await prisma.dominios.create({
       data: {
         dominio,
         id_loja,
         subdominio,
+        status: dnsResult.verificado ? 'verified' : 'pending',
+        dns_verificado: dnsResult.verificado,
         configuracao_dns: {
           tipo: 'CNAME',
           nome: subdominio,
           valor: 'checkout.lojafacil.com',
           ttl: 300
-        }
+        },
+        erro_verificacao: dnsResult.erro
       }
     })
+    
+    // Se DNS está verificado, tentar ativar SSL automaticamente
+    if (dnsResult.verificado) {
+      try {
+        console.log(`Tentando ativar SSL automaticamente para: ${dominio}`)
+        
+        // Fazer chamada para a API de ativação SSL
+        const sslResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/ssl/activate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            domainId: novoDominio.id
+          })
+        })
+        
+        if (sslResponse.ok) {
+          console.log(`SSL ativado automaticamente para: ${dominio}`)
+        } else {
+          console.log(`Falha na ativação automática de SSL para: ${dominio}`)
+        }
+      } catch (sslError) {
+        console.error(`Erro na ativação automática de SSL para ${dominio}:`, sslError)
+      }
+    }
     
     return NextResponse.json(novoDominio, { status: 201 })
   } catch (error) {
@@ -181,11 +213,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
-    // Verificar se o domínio pertence à loja
+    // Verificar se o domínio pertence à loja e buscar certificado SSL
     const dominio = await prisma.dominios.findFirst({
       where: {
         id,
         id_loja: idLoja
+      },
+      include: {
+        ssl_certificate: true
       }
     })
     
@@ -196,10 +231,20 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
+    // Remover certificado SSL se existir
+    if (dominio.ssl_certificate_id) {
+      await prisma.sSL_certificates.delete({
+        where: { id: dominio.ssl_certificate_id }
+      })
+      console.log(`Certificado SSL removido para domínio: ${dominio.dominio}`)
+    }
+    
     // Deletar fisicamente do banco de dados para permitir reutilização
     await prisma.dominios.delete({
       where: { id }
     })
+    
+    console.log(`Domínio removido: ${dominio.dominio}`)
     
     return NextResponse.json({ message: 'Domínio removido com sucesso' })
   } catch (error) {

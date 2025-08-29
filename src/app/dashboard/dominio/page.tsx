@@ -149,9 +149,13 @@ export default function DominioPage() {
         setDomains(prev => [...prev, newDomainObj])
         setNewDomain('')
         
+        const successMessage = data.dns_verificado 
+          ? 'Domínio adicionado e SSL sendo ativado automaticamente via Let\'s Encrypt!'
+          : 'Domínio adicionado com sucesso. Configure o DNS para ativar o SSL automaticamente.'
+        
         toast({
           title: 'Domínio adicionado',
-          description: 'Domínio adicionado com sucesso. Configure o DNS conforme as instruções.'
+          description: successMessage
         })
       } else {
         const errorData = await response.json()
@@ -284,7 +288,7 @@ export default function DominioPage() {
       return
     }
 
-    if (!confirm('Tem certeza que deseja excluir este domínio?')) {
+    if (!confirm('Tem certeza que deseja excluir este domínio?\n\nIsso também removerá o certificado SSL associado (se houver).')) {
       return
     }
 
