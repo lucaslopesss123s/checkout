@@ -20,7 +20,8 @@ import {
   CheckCircle,
   ShoppingBag,
   Globe,
-  Truck
+  Truck,
+  Settings
 } from "lucide-react"
 import {
     Collapsible,
@@ -65,6 +66,7 @@ const navItems = [
   { href: "/dashboard/personalizar", label: "Personalizar", icon: Paintbrush },
   { href: "/dashboard/integrations", label: "Integrações", icon: Plug },
   { href: "/dashboard/relatorios", label: "Relatórios", icon: BarChart2 },
+  { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
 ]
 
 export function MainNav() {
