@@ -116,16 +116,16 @@ tail -n 50 logs/abandoned-carts.log
 node scripts/process-abandoned-carts.js
 
 # Ou fazer requisição direta à API
-curl -X POST http://localhost:9002/api/carrinho/abandonados
+curl -X POST http://localhost:3000/api/carrinho/abandonados
 ```
 
 ### Verificar Estatísticas
 ```bash
 # Obter estatísticas gerais
-curl http://localhost:9002/api/carrinho/abandonados
+curl http://localhost:3000/api/carrinho/abandonados
 
 # Obter estatísticas de uma loja específica
-curl "http://localhost:9002/api/carrinho/abandonados?id_loja=123"
+curl "http://localhost:3000/api/carrinho/abandonados?id_loja=123"
 ```
 
 ## Configurações Avançadas
@@ -145,7 +145,7 @@ const TEMPO_ABANDONO_MINUTOS = 30 // Altere para o valor desejado
 O script suporta as seguintes variáveis de ambiente:
 
 ```bash
-# URL da API (padrão: http://localhost:9002)
+# URL da API (padrão: http://localhost:3000)
 export NEXT_PUBLIC_API_URL=https://seu-dominio.com
 
 # Executar o script

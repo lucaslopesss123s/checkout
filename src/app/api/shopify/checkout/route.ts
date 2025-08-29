@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     const sessionData = Buffer.from(JSON.stringify(checkoutSession)).toString('base64')
 
     // Gerar URL do checkout personalizado
-    const checkoutUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'}/shopify-checkout?session=${sessionData}`
+    const checkoutUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/shopify-checkout?session=${sessionData}`
 
     const response = NextResponse.json({
       success: true,

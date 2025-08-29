@@ -40,7 +40,7 @@ O projeto também utiliza Firebase para autenticação. As configurações estã
 npm run dev
 ```
 
-O servidor de desenvolvimento será iniciado em http://localhost:9002.
+O servidor de desenvolvimento será iniciado em http://localhost:3000.
 
 ## Migração de Dados
 

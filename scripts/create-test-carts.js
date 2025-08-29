@@ -2,7 +2,7 @@
 
 // Script para criar carrinhos de teste para demonstrar a funcionalidade
 async function createTestCarts() {
-  const baseUrl = 'http://localhost:9002';
+  const baseUrl = 'http://localhost:3000';
   
   // Dados de teste para diferentes lojas
   const testCarts = [
@@ -106,7 +106,7 @@ async function createTestCarts() {
   
   
   console.log('\n🎉 Carrinhos de teste criados! Acesse o dashboard para visualizar.');
-  console.log('📊 Dashboard: http://localhost:9002/dashboard/pedidos/carrinhos-abandonados');
+  console.log('📊 Dashboard: http://localhost:3000/dashboard/pedidos/carrinhos-abandonados');
 }
 
 createTestCarts().catch(console.error);

@@ -5,7 +5,7 @@ async function deleteAllCarts() {
     console.log('🗑️ Buscando todos os carrinhos...');
     
     // Buscar todos os carrinhos
-    const response = await fetch('http://localhost:9002/api/carrinho?page=1&limit=100');
+    const response = await fetch('http://localhost:3000/api/carrinho?page=1&limit=100');
     const data = await response.json();
     
     if (!data.success || !data.carrinhos) {
@@ -24,7 +24,7 @@ async function deleteAllCarts() {
     // Deletar cada carrinho
     for (const carrinho of carrinhos) {
       try {
-        const deleteResponse = await fetch(`http://localhost:9002/api/carrinho/${carrinho.id}`, {
+        const deleteResponse = await fetch(`http://localhost:3000/api/carrinho/${carrinho.id}`, {
           method: 'DELETE'
         });
         
@@ -42,7 +42,7 @@ async function deleteAllCarts() {
     console.log('📊 Verificando se a tabela está vazia...');
     
     // Verificar se a tabela está vazia
-    const checkResponse = await fetch('http://localhost:9002/api/carrinho?page=1&limit=5');
+    const checkResponse = await fetch('http://localhost:3000/api/carrinho?page=1&limit=5');
     const checkData = await checkResponse.json();
     
     if (checkData.success && checkData.carrinhos.length === 0) {

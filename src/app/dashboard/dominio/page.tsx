@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Shield } from 'lucide-react'
+import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Shield, Zap, Square, CheckSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useStore } from '@/contexts/store-context'
 import Link from 'next/link'
@@ -44,6 +44,15 @@ export default function DominioPage() {
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [isActivatingSSL, setIsActivatingSSL] = useState<string | null>(null)
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([])
+  const [batchSSLJob, setBatchSSLJob] = useState<{
+    jobId: string;
+    status: string;
+    progress: number;
+    total: number;
+    percentage: number;
+  } | null>(null)
+  const [showBatchSSL, setShowBatchSSL] = useState(false)
 
   useEffect(() => {
     if (selectedStore) {
@@ -278,6 +287,133 @@ export default function DominioPage() {
     }
   }
 
+  const activateSSLBatch = async () => {
+    if (selectedDomains.length === 0) {
+      toast({
+        title: 'Erro',
+        description: 'Selecione pelo menos um domínio para ativar SSL',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/ssl/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          domainIds: selectedDomains,
+          options: {
+            timeout: 60000,
+            maxConcurrent: 3,
+            fallbackToSelfSigned: true
+          }
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setBatchSSLJob({
+          jobId: data.jobId,
+          status: 'pending',
+          progress: 0,
+          total: selectedDomains.length,
+          percentage: 0
+        })
+        
+        toast({
+          title: 'SSL em Lote Iniciado',
+          description: `Ativação SSL iniciada para ${selectedDomains.length} domínios`
+        })
+        
+        // Monitorar progresso
+        monitorBatchSSLJob(data.jobId)
+        setSelectedDomains([])
+        setShowBatchSSL(false)
+      } else {
+        toast({
+          title: 'Erro',
+          description: data.error || 'Erro ao iniciar ativação SSL em lote',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao ativar SSL em lote:', error)
+      toast({
+        title: 'Erro',
+        description: 'Erro ao ativar SSL em lote. Tente novamente.',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const monitorBatchSSLJob = async (jobId: string) => {
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`/api/ssl/batch?jobId=${jobId}`)
+        const data = await response.json()
+        
+        if (response.ok) {
+          setBatchSSLJob({
+            jobId: data.jobId,
+            status: data.status,
+            progress: data.progress,
+            total: data.total,
+            percentage: data.percentage
+          })
+          
+          if (data.status === 'completed') {
+            const successful = data.results?.filter((r: any) => r.success).length || 0
+            const failed = data.results?.filter((r: any) => !r.success).length || 0
+            
+            toast({
+              title: 'SSL em Lote Concluído',
+              description: `${successful} sucessos, ${failed} falhas`
+            })
+            
+            loadDomains() // Recarregar domínios
+            setBatchSSLJob(null)
+          } else if (data.status === 'failed') {
+            toast({
+              title: 'Erro',
+              description: data.error || 'Falha na ativação SSL em lote',
+              variant: 'destructive'
+            })
+            setBatchSSLJob(null)
+          } else if (data.status === 'running') {
+            // Continuar monitorando
+            setTimeout(checkStatus, 3000)
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao monitorar job SSL:', error)
+        setBatchSSLJob(null)
+      }
+    }
+    
+    checkStatus()
+  }
+
+  const toggleDomainSelection = (domainId: string) => {
+    setSelectedDomains(prev => 
+      prev.includes(domainId) 
+        ? prev.filter(id => id !== domainId)
+        : [...prev, domainId]
+    )
+  }
+
+  const selectAllEligibleDomains = () => {
+    const eligibleDomains = domains
+      .filter(d => d.status === 'verified' && !d.sslActive)
+      .map(d => d.id)
+    setSelectedDomains(eligibleDomains)
+  }
+
+  const clearSelection = () => {
+    setSelectedDomains([])
+  }
+
   const deleteDomain = async (domainId: string) => {
     if (!selectedStore) {
       toast({
@@ -347,7 +483,18 @@ export default function DominioPage() {
             Configure seus domínios personalizados para o checkout
           </p>
         </div>
-
+        <div className="flex gap-2">
+          {domains.filter(d => d.status === 'verified' && !d.sslActive).length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowBatchSSL(true)}
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              SSL em Lote
+            </Button>
+          )}
+        </div>
       </div>
 
       {!selectedStore && (
@@ -401,6 +548,33 @@ export default function DominioPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Barra de progresso SSL em lote */}
+          {batchSSLJob && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-900">Ativação SSL em Lote</span>
+                    <Badge variant="outline" className="text-blue-700 border-blue-300">
+                      {batchSSLJob.status === 'running' ? 'Processando' : 
+                       batchSSLJob.status === 'pending' ? 'Iniciando' : batchSSLJob.status}
+                    </Badge>
+                  </div>
+                  <span className="text-sm text-blue-700">
+                    {batchSSLJob.progress}/{batchSSLJob.total} ({batchSSLJob.percentage}%)
+                  </span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${batchSSLJob.percentage}%` }}
+                  ></div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {domains.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -413,6 +587,18 @@ export default function DominioPage() {
                 <div key={domain.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                      {domain.status === 'verified' && !domain.sslActive && (
+                        <button
+                          onClick={() => toggleDomainSelection(domain.id)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          {selectedDomains.includes(domain.id) ? (
+                            <CheckSquare className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <Square className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                      )}
                       <div>
                         <h3 className="font-medium">{domain.domain}</h3>
                         <p className="text-sm text-muted-foreground">
@@ -518,6 +704,103 @@ export default function DominioPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal SSL em Lote */}
+      {showBatchSSL && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Ativação SSL em Lote
+              </CardTitle>
+              <CardDescription>
+                Selecione os domínios para ativar SSL automaticamente via Let's Encrypt
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={selectAllEligibleDomains}
+                  >
+                    Selecionar Todos
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearSelection}
+                  >
+                    Limpar Seleção
+                  </Button>
+                </div>
+                <Badge variant="secondary">
+                  {selectedDomains.length} selecionados
+                </Badge>
+              </div>
+              
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {domains
+                  .filter(d => d.status === 'verified' && !d.sslActive)
+                  .map(domain => (
+                    <div 
+                      key={domain.id} 
+                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedDomains.includes(domain.id) 
+                          ? 'bg-blue-50 border-blue-200' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => toggleDomainSelection(domain.id)}
+                    >
+                      {selectedDomains.includes(domain.id) ? (
+                        <CheckSquare className="h-4 w-4 text-blue-600" />
+                      ) : (
+                        <Square className="h-4 w-4 text-gray-400" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium">{domain.domain}</div>
+                        <div className="text-sm text-muted-foreground">
+                          checkout.{domain.domain}
+                        </div>
+                      </div>
+                      <Badge className="bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Verificado
+                      </Badge>
+                    </div>
+                  ))
+                }
+              </div>
+              
+              {domains.filter(d => d.status === 'verified' && !d.sslActive).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Nenhum domínio elegível para ativação SSL em lote.</p>
+                  <p className="text-sm">Domínios precisam estar verificados e sem SSL ativo.</p>
+                </div>
+              )}
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowBatchSSL(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={activateSSLBatch}
+                disabled={selectedDomains.length === 0}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Ativar SSL ({selectedDomains.length})
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

@@ -48,7 +48,7 @@ async function forceLetsEncrypt() {
     // Tentar ativar SSL novamente
     console.log('🔄 Tentando ativar SSL com Let\'s Encrypt...');
     
-    const response = await fetch('http://localhost:9002/api/ssl/activate', {
+    const response = await fetch('http://localhost:3000/api/ssl/activate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
