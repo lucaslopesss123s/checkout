@@ -73,11 +73,39 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Determinar URLs baseadas no ambiente e host
+    // Buscar domínio personalizado verificado para esta loja
+    const dominio = await prisma.dominios.findFirst({
+      where: {
+        id_loja: lojaShopify.id_loja,
+        status: 'verified',
+        dns_verificado: true,
+        ativo: true
+      }
+    })
+
+    // Determinar URLs baseadas no ambiente e domínio personalizado
     const isDevelopment = process.env.NODE_ENV === 'development'
     const isLocalhost = request.url.includes('localhost')
     const useLocalhost = isDevelopment || isLocalhost
-    const baseUrl = useLocalhost ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL || 'https://checkout.zollim.store')
+    
+    let baseUrl
+    if (useLocalhost) {
+      baseUrl = 'http://localhost:3000'
+    } else if (dominio) {
+      baseUrl = `https://checkout.${dominio.dominio}`
+    } else {
+      // Se não há domínio personalizado configurado, retornar erro
+      const response = NextResponse.json(
+        { 
+          error: 'Domínio não configurado',
+          message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard.',
+          configured: false,
+          requires_domain: true
+        },
+        { status: 400 }
+      )
+      return addCorsHeaders(response)
+    }
 
     const response = NextResponse.json({
       success: true,

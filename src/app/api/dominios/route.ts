@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
         id_loja: idLoja,
         ativo: true
       },
+      include: {
+        ssl_certificate: true
+      },
       orderBy: {
         createdAt: 'desc'
       }

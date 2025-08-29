@@ -19,6 +19,15 @@ interface Domain {
   status: 'pending' | 'verified' | 'failed'
   createdAt: string
   lastChecked?: string
+  sslActive?: boolean
+  sslCertificate?: {
+    id: string
+    domain: string
+    certificate: string
+    private_key: string
+    expires_at: string
+    is_active: boolean
+  }
   dnsRecords?: {
     type: string
     value: string
@@ -62,6 +71,8 @@ export default function DominioPage() {
           status: d.status,
           createdAt: d.createdAt,
           lastChecked: d.ultima_verificacao,
+          sslActive: d.ssl_ativo,
+          sslCertificate: d.ssl_certificate,
           dnsRecords: d.configuracao_dns?.ultimo_resultado ? [
             {
               type: d.configuracao_dns.ultimo_resultado.tipo || 'CNAME',
@@ -420,7 +431,7 @@ export default function DominioPage() {
                         )}
                         {isVerifying === domain.id ? 'Verificando...' : 'Verificar'}
                       </Button>
-                      {domain.status === 'verified' && (
+                      {domain.status === 'verified' && !domain.sslActive && (
                         <Button
                           variant="default"
                           size="sm"
@@ -434,6 +445,12 @@ export default function DominioPage() {
                           )}
                           {isActivatingSSL === domain.id ? 'Ativando...' : 'Ativar SSL'}
                         </Button>
+                      )}
+                      {domain.sslActive && (
+                        <Badge variant="default" className="bg-green-500">
+                          <Shield className="h-3 w-3 mr-1" />
+                          SSL Ativo
+                        </Badge>
                       )}
                       <Button
                         variant="destructive"

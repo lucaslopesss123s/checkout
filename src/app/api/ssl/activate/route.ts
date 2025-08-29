@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
 import { generateSelfSignedCertificate, checkCertificateExists, readExistingCertificate } from '@/lib/ssl-generator'
+import { generateLetsEncryptCertificate, saveLetsEncryptCertificate } from '@/lib/letsencrypt-ssl'
 
 // Função para adicionar cabeçalhos CORS
 function addCorsHeaders(response: NextResponse) {
@@ -109,47 +110,79 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    // Verificar se já existe certificado local
-    const certExists = await checkCertificateExists(fullDomain)
-    let certificateData
-
-    if (certExists) {
-      // Usar certificado existente
-      certificateData = await readExistingCertificate(fullDomain)
-      certificateData.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 ano
+    // Tentar gerar certificado Let's Encrypt primeiro
+    console.log(`Gerando certificado Let's Encrypt para ${fullDomain}...`)
+    const letsEncryptResult = await generateLetsEncryptCertificate(fullDomain)
+    
+    let sslCert
+    
+    if (letsEncryptResult.success && letsEncryptResult.certificate && letsEncryptResult.privateKey) {
+      // Usar certificado Let's Encrypt
+      console.log(`Certificado Let's Encrypt gerado com sucesso para ${fullDomain}`)
+      
+      const success = await saveLetsEncryptCertificate(
+        domainId,
+        fullDomain,
+        letsEncryptResult.certificate,
+        letsEncryptResult.privateKey
+      )
+      
+      if (!success) {
+        throw new Error('Falha ao salvar certificado Let\'s Encrypt no banco de dados')
+      }
+      
+      // Buscar o certificado salvo
+      sslCert = await prisma.sSL_certificates.findFirst({
+        where: { domain: fullDomain },
+        orderBy: { createdAt: 'desc' }
+      })
+      
     } else {
-      // Gerar novo certificado auto-assinado
-      console.log(`Gerando certificado SSL auto-assinado para ${fullDomain}...`)
-      certificateData = await generateSelfSignedCertificate(fullDomain)
+      // Fallback para certificado auto-assinado
+      console.log(`Falha no Let's Encrypt (${letsEncryptResult.error}), usando certificado auto-assinado...`)
+      
+      const certExists = await checkCertificateExists(fullDomain)
+      let certificateData
+
+      if (certExists) {
+        certificateData = await readExistingCertificate(fullDomain)
+        certificateData.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      } else {
+        certificateData = await generateSelfSignedCertificate(fullDomain)
+      }
+      
+      const expiresAt = certificateData.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+
+      sslCert = await prisma.sSL_certificates.create({
+        data: {
+          domain: fullDomain,
+          certificate: certificateData.certificate,
+          private_key: certificateData.privateKey,
+          certificate_chain: certificateData.certificateChain,
+          cert_path: certificateData.certPath,
+          key_path: certificateData.keyPath,
+          chain_path: certificateData.chainPath,
+          status: 'active',
+          provider: 'self-signed',
+          expires_at: expiresAt,
+          auto_renew: true
+        }
+      })
+      
+      // Atualizar domínio para auto-assinado
+      await prisma.dominios.update({
+        where: { id: domainId },
+        data: {
+          ssl_ativo: true,
+          ssl_certificate_id: sslCert.id
+        }
+      })
     }
-    // Salvar certificado no banco de dados
-    const expiresAt = certificateData.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
-    // Salvar no banco de dados
-    const sslCert = await prisma.sSL_certificates.create({
-      data: {
-        domain: fullDomain,
-        certificate: certificateData.certificate,
-        private_key: certificateData.privateKey,
-        certificate_chain: certificateData.certificateChain,
-        cert_path: certificateData.certPath,
-        key_path: certificateData.keyPath,
-        chain_path: certificateData.chainPath,
-        status: 'active',
-        provider: 'self-signed',
-        expires_at: expiresAt,
-        auto_renew: true
-      }
-    })
-
-    // Atualizar status SSL do domínio
-    await prisma.dominios.update({
-      where: { id: domainId },
-      data: {
-        ssl_ativo: true,
-        ssl_certificate_id: sslCert.id
-      }
-    })
+    // Verificar se o certificado foi criado
+    if (!sslCert) {
+      throw new Error('Falha ao criar certificado SSL')
+    }
 
     console.log(`Certificado SSL ativado com sucesso para ${fullDomain}`)
 
