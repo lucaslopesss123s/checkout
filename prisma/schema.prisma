@@ -411,3 +411,91 @@ model SSL_renewal_logs {
 
   @@index([executed_at])
 }
+
+// 21 - Cloudflare_config (configurações do Cloudflare)
+model Cloudflare_config {
+  id            String   @id @default(uuid())
+  id_loja       String   @unique // ID da loja
+  api_token     String   // Token da API do Cloudflare
+  email         String?  // Email da conta Cloudflare (opcional para tokens)
+  zone_id       String?  // ID da zona principal (opcional)
+  zone_name     String?  // Nome da zona principal (ex: meusite.com)
+  account_id    String?  // ID da conta Cloudflare
+  ativo         Boolean  @default(true) // Se a configuração está ativa
+  last_sync     DateTime? // Última sincronização com Cloudflare
+  sync_error    String?  // Último erro de sincronização
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relacionamentos
+  zones         Cloudflare_zones[]
+  dns_records   Cloudflare_dns_records[]
+
+  @@index([id_loja])
+  @@index([ativo])
+}
+
+// 22 - Cloudflare_zones (zonas do Cloudflare)
+model Cloudflare_zones {
+  id                String   @id @default(uuid())
+  cloudflare_id     String   @unique // ID da zona no Cloudflare
+  name              String   // Nome da zona (ex: meusite.com)
+  status            String   // active, pending, initializing, moved, deleted, deactivated
+  paused            Boolean  @default(false) // Se a zona está pausada
+  type              String   @default("full") // full, partial, secondary
+  development_mode  Int      @default(0) // Tempo restante do modo de desenvolvimento
+  name_servers      Json?    // Name servers da zona
+  original_name_servers Json? // Name servers originais
+  original_registrar String? // Registrador original
+  original_dnshost  String?  // Host DNS original
+  created_on        DateTime? // Data de criação no Cloudflare
+  modified_on       DateTime? // Data de modificação no Cloudflare
+  activated_on      DateTime? // Data de ativação no Cloudflare
+  // Relacionamento com configuração
+  config_id         String
+  config            Cloudflare_config @relation(fields: [config_id], references: [id], onDelete: Cascade)
+  // Timestamps locais
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relacionamentos
+  dns_records       Cloudflare_dns_records[]
+
+  @@index([cloudflare_id])
+  @@index([name])
+  @@index([status])
+  @@index([config_id])
+}
+
+// 23 - Cloudflare_dns_records (registros DNS do Cloudflare)
+model Cloudflare_dns_records {
+  id            String   @id @default(uuid())
+  cloudflare_id String   @unique // ID do registro no Cloudflare
+  zone_id       String   // ID da zona local
+  zone          Cloudflare_zones @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  config_id     String   // ID da configuração
+  config        Cloudflare_config @relation(fields: [config_id], references: [id], onDelete: Cascade)
+  // Dados do registro DNS
+  type          String   // A, AAAA, CNAME, MX, TXT, etc.
+  name          String   // Nome do registro (ex: checkout, www, @)
+  content       String   // Conteúdo do registro (IP, domínio, etc.)
+  ttl           Int      @default(1) // TTL (1 = automatic)
+  priority      Int?     // Prioridade (para MX, SRV)
+  proxied       Boolean  @default(false) // Se está sendo proxied pelo Cloudflare
+  // Metadados
+  proxiable     Boolean  @default(false) // Se pode ser proxied
+  locked        Boolean  @default(false) // Se está bloqueado
+  // Timestamps do Cloudflare
+  created_on    DateTime? // Data de criação no Cloudflare
+  modified_on   DateTime? // Data de modificação no Cloudflare
+  // Timestamps locais
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([cloudflare_id])
+  @@index([zone_id])
+  @@index([config_id])
+  @@index([type])
+  @@index([name])
+  @@index([proxied])
+}

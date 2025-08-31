@@ -8,10 +8,22 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Shield, Zap, Square, CheckSquare } from 'lucide-react'
+import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Shield, Zap, Square, CheckSquare, Cloud, Server, Settings } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useStore } from '@/contexts/store-context'
 import Link from 'next/link'
+
+interface CloudflareZone {
+  id: string
+  domain: string
+  status: 'pending' | 'active' | 'failed'
+  nameservers?: string[]
+  createdAt: string
+  lastChecked?: string
+  sslActive?: boolean
+  cloudflareZoneId?: string
+  dnsConfigured?: boolean
+}
 
 interface Domain {
   id: string
@@ -38,9 +50,12 @@ interface Domain {
 export default function DominioPage() {
   const { selectedStore } = useStore()
   const [domains, setDomains] = useState<Domain[]>([])
+  const [cloudflareZones, setCloudflareZones] = useState<CloudflareZone[]>([])
   const [newDomain, setNewDomain] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerifying, setIsVerifying] = useState<string | null>(null)
+  const [isCreatingZone, setIsCreatingZone] = useState(false)
+  const [isCheckingStatus, setIsCheckingStatus] = useState<string | null>(null)
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [isActivatingSSL, setIsActivatingSSL] = useState<string | null>(null)
@@ -53,15 +68,45 @@ export default function DominioPage() {
     percentage: number;
   } | null>(null)
   const [showBatchSSL, setShowBatchSSL] = useState(false)
+  const [useCloudflare, setUseCloudflare] = useState(true)
 
   useEffect(() => {
     if (selectedStore) {
-      loadDomains()
+      if (useCloudflare) {
+        loadCloudflareZones()
+      } else {
+        loadDomains()
+      }
     } else {
       // Limpar domínios quando não há loja selecionada
       setDomains([])
+      setCloudflareZones([])
     }
-  }, [selectedStore])
+  }, [selectedStore, useCloudflare])
+
+  const loadCloudflareZones = async () => {
+    if (!selectedStore) {
+      console.log('Nenhuma loja selecionada')
+      return
+    }
+    
+    try {
+      const response = await fetch(`/api/cloudflare/zones/status?storeId=${selectedStore.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCloudflareZones(data.zones || [])
+      } else {
+        console.error('Erro ao carregar zonas Cloudflare:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar zonas Cloudflare:', error)
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar zonas Cloudflare. Tente recarregar a página.',
+        variant: 'destructive'
+      })
+    }
+  }
 
   const loadDomains = async () => {
     if (!selectedStore) {
@@ -104,7 +149,89 @@ export default function DominioPage() {
     }
   }
 
+  const createCloudflareZone = async () => {
+    if (!newDomain.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, insira um domínio válido.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // Validar formato do domínio
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/
+    if (!domainRegex.test(newDomain)) {
+      toast({
+        title: 'Domínio inválido',
+        description: 'Por favor, insira um domínio válido (ex: meusite.com.br).',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (!selectedStore) {
+      toast({
+        title: 'Erro',
+        description: 'Nenhuma loja selecionada.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setIsCreatingZone(true)
+    try {
+      const response = await fetch('/api/cloudflare/zones/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          domain: newDomain,
+          storeId: selectedStore.id
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const newZone: CloudflareZone = {
+          id: data.id,
+          domain: data.domain,
+          status: 'pending',
+          nameservers: data.nameservers,
+          createdAt: data.createdAt,
+          cloudflareZoneId: data.cloudflareZoneId
+        }
+        
+        setCloudflareZones(prev => [...prev, newZone])
+        setNewDomain('')
+        
+        toast({
+          title: 'Zona Cloudflare criada!',
+          description: 'Configure os nameservers no seu provedor de domínio para ativar.'
+        })
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: 'Erro',
+          description: errorData.error || 'Erro ao criar zona Cloudflare.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao criar zona Cloudflare. Tente novamente.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsCreatingZone(false)
+    }
+  }
+
   const addDomain = async () => {
+    if (useCloudflare) {
+      return createCloudflareZone()
+    }
+
     if (!newDomain.trim()) {
       toast({
         title: 'Erro',
@@ -185,7 +312,72 @@ export default function DominioPage() {
     }
   }
 
+  const checkCloudflareZoneStatus = async (zoneId: string) => {
+    setIsCheckingStatus(zoneId)
+    try {
+      const response = await fetch('/api/cloudflare/zones/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          zoneId,
+          storeId: selectedStore?.id
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Atualizar a zona na lista local
+        setCloudflareZones(prev => prev.map(zone => 
+          zone.id === zoneId 
+            ? { 
+                ...zone, 
+                status: data.status,
+                lastChecked: new Date().toISOString(),
+                sslActive: data.sslActive,
+                dnsConfigured: data.dnsConfigured
+              }
+            : zone
+        ))
+        
+        if (data.status === 'active') {
+          toast({
+            title: 'Zona ativada com sucesso!',
+            description: data.dnsConfigured 
+              ? 'DNS configurado e SSL ativo automaticamente.'
+              : 'Zona ativa. DNS sendo configurado...'
+          })
+        } else {
+          toast({
+            title: 'Zona ainda não está ativa',
+            description: 'Verifique se os nameservers foram configurados corretamente.',
+            variant: 'destructive'
+          })
+        }
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: 'Erro na verificação',
+          description: errorData.error || 'Erro ao verificar zona Cloudflare.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro na verificação',
+        description: 'Erro ao verificar zona. Tente novamente.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsCheckingStatus(null)
+    }
+  }
+
   const verifyDomain = async (domainId: string) => {
+    if (useCloudflare) {
+      return checkCloudflareZoneStatus(domainId)
+    }
+
     setIsVerifying(domainId)
     try {
       const response = await fetch(`/api/dominios/${domainId}/verificar`, {
@@ -484,7 +676,26 @@ export default function DominioPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {domains.filter(d => d.status === 'verified' && !d.sslActive).length > 0 && (
+          <div className="flex items-center gap-2 mr-4">
+            <Button
+              variant={useCloudflare ? "default" : "outline"}
+              size="sm"
+              onClick={() => setUseCloudflare(true)}
+              className={useCloudflare ? "bg-orange-500 hover:bg-orange-600" : ""}
+            >
+              <Cloud className="h-4 w-4 mr-2" />
+              Cloudflare
+            </Button>
+            <Button
+              variant={!useCloudflare ? "default" : "outline"}
+              size="sm"
+              onClick={() => setUseCloudflare(false)}
+            >
+              <Server className="h-4 w-4 mr-2" />
+              Tradicional
+            </Button>
+          </div>
+          {!useCloudflare && domains.filter(d => d.status === 'verified' && !d.sslActive).length > 0 && (
             <Button 
               variant="outline" 
               onClick={() => setShowBatchSSL(true)}
@@ -510,12 +721,33 @@ export default function DominioPage() {
       {/* Adicionar novo domínio */}
       <Card>
         <CardHeader>
-          <CardTitle>Adicionar Novo Domínio</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            {useCloudflare ? (
+              <><Cloud className="h-5 w-5 text-orange-500" />Adicionar Domínio via Cloudflare</>
+            ) : (
+              <><Server className="h-5 w-5" />Adicionar Domínio Tradicional</>
+            )}
+          </CardTitle>
           <CardDescription>
-            Adicione um domínio personalizado para seu checkout
+            {useCloudflare ? (
+              'Crie uma zona no Cloudflare para seu domínio com SSL automático'
+            ) : (
+              'Adicione um domínio personalizado para seu checkout'
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {useCloudflare && (
+            <Alert className="bg-orange-50 border-orange-200">
+              <Cloud className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Como funciona:</strong><br/>
+                1. Inserimos seu domínio no Cloudflare<br/>
+                2. Você configura os nameservers no seu provedor<br/>
+                3. SSL e DNS são configurados automaticamente
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex gap-4">
             <div className="flex-1">
               <Label htmlFor="domain">Domínio</Label>
@@ -529,8 +761,12 @@ export default function DominioPage() {
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={addDomain} disabled={isLoading || !selectedStore}>
-                {isLoading ? 'Adicionando...' : 'Adicionar'}
+              <Button onClick={addDomain} disabled={(useCloudflare ? isCreatingZone : isLoading) || !selectedStore}>
+                {useCloudflare ? (
+                  isCreatingZone ? 'Criando zona...' : 'Criar Zona'
+                ) : (
+                  isLoading ? 'Adicionando...' : 'Adicionar'
+                )}
               </Button>
             </div>
           </div>
@@ -542,9 +778,19 @@ export default function DominioPage() {
       {/* Lista de domínios */}
       <Card>
         <CardHeader>
-          <CardTitle>Domínios Configurados</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            {useCloudflare ? (
+              <><Cloud className="h-5 w-5 text-orange-500" />Zonas Cloudflare</>
+            ) : (
+              <><Server className="h-5 w-5" />Domínios Configurados</>
+            )}
+          </CardTitle>
           <CardDescription>
-            Gerencie seus domínios personalizados
+            {useCloudflare ? (
+              'Gerencie suas zonas Cloudflare e nameservers'
+            ) : (
+              'Gerencie seus domínios personalizados'
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -575,15 +821,131 @@ export default function DominioPage() {
             </Card>
           )}
 
-          {domains.length === 0 ? (
+          {(useCloudflare ? cloudflareZones.length === 0 : domains.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum domínio configurado ainda.</p>
-              <p className="text-sm">Adicione seu primeiro domínio acima.</p>
+              {useCloudflare ? (
+                <Cloud className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              ) : (
+                <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              )}
+              <p>{useCloudflare ? 'Nenhuma zona Cloudflare configurada ainda.' : 'Nenhum domínio configurado ainda.'}</p>
+              <p className="text-sm">{useCloudflare ? 'Crie sua primeira zona acima.' : 'Adicione seu primeiro domínio acima.'}</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {domains.map((domain) => (
+              {useCloudflare ? (
+                cloudflareZones.map((zone) => (
+                  <div key={zone.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <h3 className="font-medium flex items-center gap-2">
+                            <Cloud className="h-4 w-4 text-orange-500" />
+                            {zone.domain}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Criado em {new Date(zone.createdAt).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {zone.status === 'active' ? (
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                            <CheckCircle className="w-3 h-3 mr-1" />Ativo
+                          </Badge>
+                        ) : zone.status === 'failed' ? (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />Falhou
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <AlertTriangle className="w-3 h-3 mr-1" />Pendente
+                          </Badge>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => verifyDomain(zone.id)}
+                          disabled={isCheckingStatus === zone.id}
+                        >
+                          {isCheckingStatus === zone.id ? (
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                          )}
+                          {isCheckingStatus === zone.id ? 'Verificando...' : 'Verificar Status'}
+                        </Button>
+                        {zone.sslActive && (
+                          <Badge variant="default" className="bg-green-500">
+                            <Shield className="h-3 w-3 mr-1" />
+                            SSL Ativo
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {zone.nameservers && zone.status === 'pending' && (
+                      <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                        <div className="flex items-center gap-2 text-orange-800 mb-2">
+                          <Settings className="h-4 w-4" />
+                          <span className="font-medium">Configure os Nameservers</span>
+                        </div>
+                        <p className="text-sm text-orange-700 mb-3">
+                          Configure estes nameservers no seu provedor de domínio:
+                        </p>
+                        <div className="space-y-2">
+                          {zone.nameservers.map((ns, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white rounded p-2 border">
+                              <code className="text-sm font-mono">{ns}</code>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(ns)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {zone.status === 'active' && (
+                      <div className="bg-green-50 border border-green-200 rounded p-3">
+                        <div className="flex items-center gap-2 text-green-800 mb-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="font-medium">Zona ativa com sucesso!</span>
+                        </div>
+                        <p className="text-sm text-green-700 mb-3">
+                          Seu checkout está disponível em: 
+                          <a 
+                            href={`https://checkout.${zone.domain}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="font-medium underline ml-1 inline-flex items-center gap-1"
+                          >
+                            checkout.{zone.domain}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </p>
+                        {zone.sslActive && (
+                          <div className="flex items-center gap-2 text-green-700">
+                            <Shield className="h-4 w-4" />
+                            <span className="text-sm font-medium">SSL Universal ativo automaticamente</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {zone.lastChecked && (
+                      <p className="text-xs text-muted-foreground">
+                        Última verificação: {new Date(zone.lastChecked).toLocaleString('pt-BR')}
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                domains.map((domain) => (
                 <div key={domain.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -699,9 +1061,10 @@ export default function DominioPage() {
                     </p>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
+        )}
         </CardContent>
       </Card>
 
