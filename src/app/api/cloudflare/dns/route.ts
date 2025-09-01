@@ -5,7 +5,8 @@ import {
   createDNSRecord, 
   updateDNSRecord, 
   deleteDNSRecord,
-  getZoneByName 
+  getZoneByName,
+  getCloudflareConfigFromEnv 
 } from '@/lib/cloudflare-config'
 import jwt from 'jsonwebtoken'
 
@@ -25,24 +26,30 @@ export async function OPTIONS(request: NextRequest) {
   return addCorsHeaders(response)
 }
 
-// Função para obter credenciais do Cloudflare
-async function getCloudflareCredentials(storeId: string, userId: string) {
-  const cloudflareConfig = await prisma.cloudflare_config.findFirst({
+// Função para obter configuração do Cloudflare
+function getCloudflareConfig() {
+  try {
+    return getCloudflareConfigFromEnv();
+  } catch (error) {
+    console.error('Erro ao obter configuração do Cloudflare:', error);
+    throw new Error('Configuração do Cloudflare não disponível. Verifique as variáveis de ambiente.');
+  }
+}
+
+// Função para verificar acesso à loja
+async function verifyStoreAccess(storeId: string, userId: string) {
+  const store = await prisma.loja_admin.findFirst({
     where: {
-      id_loja: storeId,
-      status: 'active'
+      id: storeId,
+      user_id: userId
     }
   })
 
-  if (!cloudflareConfig) {
-    throw new Error('Configuração do Cloudflare não encontrada')
+  if (!store) {
+    throw new Error('Loja não encontrada ou acesso negado')
   }
 
-  return {
-    email: cloudflareConfig.email,
-    apiToken: cloudflareConfig.api_token,
-    apiKey: cloudflareConfig.api_key
-  }
+  return store
 }
 
 // GET - Listar registros DNS
@@ -76,10 +83,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -92,10 +99,34 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const credentials = await getCloudflareCredentials(storeId, userId)
+      // Verificar acesso à loja
+      await verifyStoreAccess(storeId, userId)
       
+      // Buscar configuração do Cloudflare no banco
+      const dbConfig = await prisma.cloudflare_config.findFirst({
+        where: {
+          id_loja: storeId,
+          status: 'active'
+        }
+      })
+
+      if (!dbConfig) {
+        const response = NextResponse.json(
+          { error: 'Configuração do Cloudflare não encontrada' },
+          { status: 404 }
+        )
+        return addCorsHeaders(response)
+      }
+      
+      // Usar configuração do Cloudflare do banco de dados
+      const cloudflareConfig = {
+        apiToken: dbConfig.api_token,
+        email: dbConfig.email || '',
+        apiKey: dbConfig.api_key || ''
+      }
+
       // Obter zona
-      const zone = await getZoneByName(credentials, zoneName)
+      const zone = await getZoneByName(cloudflareConfig, zoneName)
       if (!zone) {
         const response = NextResponse.json(
           { error: 'Zona não encontrada no Cloudflare' },
@@ -105,7 +136,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Listar registros DNS
-      const records = await listDNSRecords(credentials, zone.id, recordType, recordName)
+      const records = await listDNSRecords(cloudflareConfig, zone.id, recordType, recordName)
 
       const response = NextResponse.json({
         success: true,
@@ -172,10 +203,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -188,10 +219,34 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const credentials = await getCloudflareCredentials(storeId, userId)
+      // Verificar acesso à loja
+      await verifyStoreAccess(storeId, userId)
+      
+      // Buscar configuração do Cloudflare no banco
+      const dbConfig = await prisma.cloudflare_config.findFirst({
+        where: {
+          id_loja: storeId,
+          status: 'active'
+        }
+      })
+
+      if (!dbConfig) {
+        const response = NextResponse.json(
+          { error: 'Configuração do Cloudflare não encontrada' },
+          { status: 404 }
+        )
+        return addCorsHeaders(response)
+      }
+      
+      // Usar configuração do Cloudflare do banco de dados
+      const cloudflareConfig = {
+        apiToken: dbConfig.api_token,
+        email: dbConfig.email || '',
+        apiKey: dbConfig.api_key || ''
+      }
       
       // Obter zona
-      const zone = await getZoneByName(credentials, zoneName)
+      const zone = await getZoneByName(cloudflareConfig, zoneName)
       if (!zone) {
         const response = NextResponse.json(
           { error: 'Zona não encontrada no Cloudflare' },
@@ -201,7 +256,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Criar registro DNS
-      const record = await createDNSRecord(credentials, zone.id, {
+      const record = await createDNSRecord(cloudflareConfig, zone.id, {
         type,
         name,
         content,
@@ -271,10 +326,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -287,10 +342,34 @@ export async function PUT(request: NextRequest) {
     }
 
     try {
-      const credentials = await getCloudflareCredentials(storeId, userId)
+      // Verificar acesso à loja
+      await verifyStoreAccess(storeId, userId)
+      
+      // Buscar configuração do Cloudflare no banco
+      const dbConfig = await prisma.cloudflare_config.findFirst({
+        where: {
+          id_loja: storeId,
+          status: 'active'
+        }
+      })
+
+      if (!dbConfig) {
+        const response = NextResponse.json(
+          { error: 'Configuração do Cloudflare não encontrada' },
+          { status: 404 }
+        )
+        return addCorsHeaders(response)
+      }
+      
+      // Usar configuração do Cloudflare do banco de dados
+      const cloudflareConfig = {
+        apiToken: dbConfig.api_token,
+        email: dbConfig.email || '',
+        apiKey: dbConfig.api_key || ''
+      }
       
       // Obter zona
-      const zone = await getZoneByName(credentials, zoneName)
+      const zone = await getZoneByName(cloudflareConfig, zoneName)
       if (!zone) {
         const response = NextResponse.json(
           { error: 'Zona não encontrada no Cloudflare' },
@@ -308,7 +387,7 @@ export async function PUT(request: NextRequest) {
       if (proxied !== undefined) updateData.proxied = proxied
       if (priority) updateData.priority = priority
 
-      const record = await updateDNSRecord(credentials, zone.id, recordId, updateData)
+      const record = await updateDNSRecord(cloudflareConfig, zone.id, recordId, updateData)
 
       const response = NextResponse.json({
         success: true,
@@ -374,10 +453,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -390,10 +469,34 @@ export async function DELETE(request: NextRequest) {
     }
 
     try {
-      const credentials = await getCloudflareCredentials(storeId, userId)
+      // Verificar acesso à loja
+      await verifyStoreAccess(storeId, userId)
+      
+      // Buscar configuração do Cloudflare no banco
+      const dbConfig = await prisma.cloudflare_config.findFirst({
+        where: {
+          id_loja: storeId,
+          status: 'active'
+        }
+      })
+
+      if (!dbConfig) {
+        const response = NextResponse.json(
+          { error: 'Configuração do Cloudflare não encontrada' },
+          { status: 404 }
+        )
+        return addCorsHeaders(response)
+      }
+      
+      // Usar configuração do Cloudflare do banco de dados
+      const cloudflareConfig = {
+        apiToken: dbConfig.api_token,
+        email: dbConfig.email || '',
+        apiKey: dbConfig.api_key || ''
+      }
       
       // Obter zona
-      const zone = await getZoneByName(credentials, zoneName)
+      const zone = await getZoneByName(cloudflareConfig, zoneName)
       if (!zone) {
         const response = NextResponse.json(
           { error: 'Zona não encontrada no Cloudflare' },
@@ -403,7 +506,7 @@ export async function DELETE(request: NextRequest) {
       }
 
       // Deletar registro DNS
-      await deleteDNSRecord(credentials, zone.id, recordId)
+      await deleteDNSRecord(cloudflareConfig, zone.id, recordId)
 
       const response = NextResponse.json({
         success: true,

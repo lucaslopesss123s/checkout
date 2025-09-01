@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { validateCloudflareCredentials, listZones } from '@/lib/cloudflare-config'
+import { validateCloudflareCredentials, listZones, getCloudflareConfigFromEnv } from '@/lib/cloudflare-config'
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    const userId = decoded.userId
+    const userId = decoded.id || decoded.userId // Suporte para ambos os formatos
 
     const { searchParams } = new URL(request.url)
-    const storeId = searchParams.get('storeId')
+    const storeId = searchParams.get('storeId') || searchParams.get('id_loja')
 
     if (!storeId) {
       const response = NextResponse.json(
@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -109,9 +109,13 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    const userId = decoded.userId
+    const userId = decoded.id || decoded.userId // Suporte para ambos os formatos
 
-    const { storeId, email, apiToken, apiKey } = await request.json()
+    const body = await request.json()
+    const { storeId, email, api_token, apiToken } = body
+    
+    // Suporte para ambos os formatos de campo (api_token do frontend e apiToken)
+    const finalApiToken = api_token || apiToken
 
     if (!storeId) {
       const response = NextResponse.json(
@@ -122,10 +126,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -138,8 +142,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar credenciais
-    const credentials = { email, apiToken, apiKey }
+    const credentials = { email, apiToken: finalApiToken }
+    console.log('Validando credenciais:', {
+      hasEmail: !!email,
+      hasApiToken: !!finalApiToken,
+      tokenLength: finalApiToken?.length || 0
+    })
+    
     if (!validateCloudflareCredentials(credentials)) {
+      console.error('Falha na validação das credenciais')
       const response = NextResponse.json(
         { error: 'Credenciais do Cloudflare inválidas' },
         { status: 400 }
@@ -147,6 +158,8 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
+    console.log('Credenciais validadas com sucesso, testando conexão...')
+    
     // Testar conexão com Cloudflare
     try {
       const zones = await listZones(credentials)
@@ -176,10 +189,9 @@ export async function POST(request: NextRequest) {
         },
         data: {
           email: email || null,
-          api_token: apiToken || null,
-          api_key: apiKey || null,
-          status: 'active',
-          updated_at: new Date()
+          api_token: finalApiToken || null,
+          ativo: true,
+          updatedAt: new Date()
         }
       })
     } else {
@@ -188,10 +200,8 @@ export async function POST(request: NextRequest) {
         data: {
           id_loja: storeId,
           email: email || null,
-          api_token: apiToken || null,
-          api_key: apiKey || null,
-          status: 'active',
-          zonas_count: 0
+          api_token: finalApiToken || null,
+          ativo: true
         }
       })
     }
@@ -241,10 +251,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 

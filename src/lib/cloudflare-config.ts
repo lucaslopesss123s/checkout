@@ -38,8 +38,8 @@ export const CLOUDFLARE_CONFIG = {
 // Validação de credenciais
 export function validateCloudflareCredentials(config: CloudflareConfig): boolean {
   if (config.apiToken) {
-    // Validar formato do token (deve começar com underscore e ter pelo menos 40 caracteres)
-    return config.apiToken.startsWith('_') && config.apiToken.length >= 40
+    // Validar formato do token (deve ter pelo menos 40 caracteres)
+    return config.apiToken.length >= 40
   }
   
   if (config.email && config.apiKey) {
@@ -49,6 +49,30 @@ export function validateCloudflareCredentials(config: CloudflareConfig): boolean
   }
   
   return false
+}
+
+// Credenciais fixas do Cloudflare
+export const FIXED_CLOUDFLARE_CREDENTIALS = {
+  apiToken: 'Xfh4fwnRxG11r90AK8ngKYCeqjxWjS5VIRUYKBaE',
+  accountId: '1a0e1733b95b544dc866d7eef149ca81'
+}
+
+// Função para obter configuração fixa do Cloudflare
+export function getCloudflareConfig(): CloudflareConfig {
+  const config: CloudflareConfig = {
+    apiToken: FIXED_CLOUDFLARE_CREDENTIALS.apiToken
+  }
+
+  if (!validateCloudflareCredentials(config)) {
+    throw new Error('Credenciais do Cloudflare inválidas')
+  }
+
+  return config
+}
+
+// Função para obter Account ID
+export function getCloudflareAccountId(): string {
+  return FIXED_CLOUDFLARE_CREDENTIALS.accountId
 }
 
 // Tipos de erro do Cloudflare
@@ -336,4 +360,77 @@ export async function enableUniversalSSL(config: CloudflareConfig, zoneId: strin
   }
   
   return response.result
+}
+
+// Função para configurar modo SSL
+export async function setSSLMode(config: CloudflareConfig, zoneId: string, mode: 'off' | 'flexible' | 'full' | 'strict') {
+  const response = await cloudflareRequest(
+    `/zones/${zoneId}/settings/ssl`,
+    config,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        value: mode
+      })
+    }
+  )
+  
+  if (!response.success) {
+    throw new Error(`Erro ao configurar modo SSL: ${response.errors.map(e => e.message).join(', ')}`)
+  }
+  
+  return response.result
+}
+
+// Função para ativar Always Use HTTPS
+export async function setAlwaysUseHTTPS(config: CloudflareConfig, zoneId: string, enabled: boolean) {
+  const response = await cloudflareRequest(
+    `/zones/${zoneId}/settings/always_use_https`,
+    config,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        value: enabled ? 'on' : 'off'
+      })
+    }
+  )
+  
+  
+  if (!response.success) {
+    throw new Error(`Erro ao configurar Always Use HTTPS: ${response.errors.map(e => e.message).join(', ')}`)
+  }
+  
+  return response.result
+}
+
+// Função para configurar SSL automaticamente para uma nova zona
+export async function setupAutomaticSSL(config: CloudflareConfig, zoneId: string) {
+  try {
+    console.log(`Configurando SSL automático para zona: ${zoneId}`)
+    
+    // 1. Ativar SSL Universal
+    await enableUniversalSSL(config, zoneId)
+    console.log('SSL Universal ativado')
+    
+    // 2. Configurar modo SSL para 'full' (recomendado)
+    await setSSLMode(config, zoneId, 'full')
+    console.log('Modo SSL configurado para Full')
+    
+    // 3. Ativar Always Use HTTPS
+    await setAlwaysUseHTTPS(config, zoneId, true)
+    console.log('Always Use HTTPS ativado')
+    
+    return {
+      success: true,
+      message: 'SSL configurado automaticamente',
+      settings: {
+        universalSSL: true,
+        sslMode: 'full',
+        alwaysUseHTTPS: true
+      }
+    }
+  } catch (error: any) {
+    console.error('Erro ao configurar SSL automático:', error)
+    throw new Error(`Falha na configuração SSL automática: ${error.message}`)
+  }
 }

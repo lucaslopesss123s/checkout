@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { getCloudflareZone, createDNSRecord, updateDNSRecord } from '@/lib/cloudflare-config';
-
-const prisma = new PrismaClient();
+import { getCloudflareZone, createDNSRecord, updateDNSRecord, getCloudflareConfigFromEnv } from '@/lib/cloudflare-config';
 
 // IP do servidor de checkout (deve ser configurado via variável de ambiente)
 const CHECKOUT_SERVER_IP = process.env.CHECKOUT_SERVER_IP || '127.0.0.1';
+
+// Função para obter configuração do Cloudflare
+function getCloudflareConfig() {
+  try {
+    return getCloudflareConfigFromEnv();
+  } catch (error) {
+    console.error('Erro ao obter configuração do Cloudflare:', error);
+    throw new Error('Configuração do Cloudflare não disponível. Verifique as variáveis de ambiente CLOUDFLARE_API_TOKEN, CLOUDFLARE_EMAIL e CLOUDFLARE_ACCOUNT_ID.');
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,12 +70,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Zona não encontrada' }, { status: 404 });
     }
 
-    // Verificar status da zona no Cloudflare
-    const cloudflareZone = await getCloudflareZone({
+    // Usar configuração do Cloudflare do banco de dados
+    const cloudflareConfig = {
       apiToken: localZone.config.api_token,
-      email: localZone.config.email || undefined,
-      accountId: localZone.config.account_id || undefined
-    }, localZone.cloudflare_id);
+      email: localZone.config.email || '',
+      apiKey: localZone.config.api_key || ''
+    };
+
+    // Verificar status da zona no Cloudflare
+    const cloudflareZone = await getCloudflareZone(cloudflareConfig, localZone.cloudflare_id);
 
     if (!cloudflareZone.success) {
       return NextResponse.json({ 
@@ -105,11 +116,7 @@ export async function POST(request: NextRequest) {
         checkoutSubdomain = `checkout.${zone.name}`;
 
         // Criar registro DNS A para checkout.dominio.com
-        const dnsRecord = await createDNSRecord({
-          apiToken: localZone.config.api_token,
-          email: localZone.config.email || undefined,
-          accountId: localZone.config.account_id || undefined
-        }, localZone.cloudflare_id, {
+        const dnsRecord = await createDNSRecord(cloudflareConfig, localZone.cloudflare_id, {
           type: 'A',
           name: 'checkout',
           content: CHECKOUT_SERVER_IP,

@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { listZones, getZoneByName } from '@/lib/cloudflare-config'
+import { listZones, getZoneByName, getCloudflareConfigFromEnv } from '@/lib/cloudflare-config'
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+
+// Função para obter configuração do Cloudflare
+function getCloudflareConfig() {
+  try {
+    return getCloudflareConfigFromEnv()
+  } catch (error) {
+    throw new Error('Configuração do Cloudflare não encontrada nas variáveis de ambiente')
+  }
+}
 
 // Função para adicionar cabeçalhos CORS
 function addCorsHeaders(response: NextResponse) {
@@ -36,7 +45,7 @@ export async function GET(request: NextRequest) {
     const userId = decoded.userId
 
     const { searchParams } = new URL(request.url)
-    const storeId = searchParams.get('storeId')
+    const storeId = searchParams.get('storeId') || searchParams.get('id_loja')
     const zoneName = searchParams.get('zoneName')
 
     if (!storeId) {
@@ -48,10 +57,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se o usuário tem acesso à loja
-    const loja = await prisma.lojas.findFirst({
+    const loja = await prisma.loja_admin.findFirst({
       where: {
         id: storeId,
-        id_usuario: userId
+        user_id: userId
       }
     })
 
@@ -63,15 +72,15 @@ export async function GET(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    // Buscar configuração do Cloudflare
-    const cloudflareConfig = await prisma.cloudflare_config.findFirst({
+    // Buscar configuração do Cloudflare no banco
+    const dbConfig = await prisma.cloudflare_config.findFirst({
       where: {
         id_loja: storeId,
         status: 'active'
       }
     })
 
-    if (!cloudflareConfig) {
+    if (!dbConfig) {
       const response = NextResponse.json(
         { error: 'Configuração do Cloudflare não encontrada' },
         { status: 404 }
@@ -79,28 +88,28 @@ export async function GET(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    // Preparar credenciais
-    const credentials = {
-      email: cloudflareConfig.email,
-      apiToken: cloudflareConfig.api_token,
-      apiKey: cloudflareConfig.api_key
-    }
-
     try {
+      // Usar configuração do Cloudflare do banco de dados
+      const cloudflareConfig = {
+        apiToken: dbConfig.api_token,
+        email: dbConfig.email || '',
+        apiKey: dbConfig.api_key || ''
+      }
+      
       let zones
       if (zoneName) {
         // Buscar zona específica
-        const zone = await getZoneByName(credentials, zoneName)
+        const zone = await getZoneByName(cloudflareConfig, zoneName)
         zones = zone ? [zone] : []
       } else {
         // Listar todas as zonas
-        zones = await listZones(credentials)
+        zones = await listZones(cloudflareConfig)
       }
 
       // Atualizar contador de zonas
       await prisma.cloudflare_config.update({
         where: {
-          id: cloudflareConfig.id
+          id: dbConfig.id
         },
         data: {
           zonas_count: zones.length,

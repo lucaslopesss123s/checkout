@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { CloudflareConfig, createCloudflareZone, getCloudflareZones } from '@/lib/cloudflare-config';
+import { CloudflareConfig, createCloudflareZone, getCloudflareConfigFromEnv, deleteCloudflareZone, listZones, setupAutomaticSSL } from '@/lib/cloudflare-config';
 
-const prisma = new PrismaClient();
-
-// Configuração da conta única do Cloudflare
-const MASTER_CLOUDFLARE_CONFIG = {
-  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
-  email: process.env.CLOUDFLARE_EMAIL,
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-};
+// Função para obter configuração do Cloudflare
+function getMasterCloudflareConfig(): CloudflareConfig {
+  try {
+    return getCloudflareConfigFromEnv();
+  } catch (error) {
+    console.error('Erro ao obter configuração do Cloudflare:', error);
+    throw new Error('Configuração do Cloudflare não disponível');
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,9 +30,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    const { domain, id_loja } = await request.json();
+    const { domain, id_loja, storeId } = await request.json();
+    const lojaId = storeId || id_loja;
 
-    if (!domain || !id_loja) {
+    if (!domain || !lojaId) {
       return NextResponse.json({ 
         error: 'Domínio e ID da loja são obrigatórios' 
       }, { status: 400 });
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Verificar se o usuário tem acesso à loja
     const loja = await prisma.loja_admin.findFirst({
       where: {
-        id: id_loja,
+        id: lojaId,
         user_id: decoded.userId
       }
     });
@@ -65,27 +67,26 @@ export async function POST(request: NextRequest) {
 
     // Verificar/criar configuração do Cloudflare para a loja
     let cloudflareConfig = await prisma.cloudflare_config.findUnique({
-      where: { id_loja }
+      where: { id_loja: lojaId }
     });
+
+    // Obter configuração do Cloudflare
+    const masterConfig = getMasterCloudflareConfig();
 
     if (!cloudflareConfig) {
       cloudflareConfig = await prisma.cloudflare_config.create({
         data: {
-          id_loja,
-          api_token: MASTER_CLOUDFLARE_CONFIG.apiToken,
-          email: MASTER_CLOUDFLARE_CONFIG.email,
-          account_id: MASTER_CLOUDFLARE_CONFIG.accountId,
+          id_loja: lojaId,
+          api_token: masterConfig.apiToken,
+          email: masterConfig.email,
+          account_id: process.env.CLOUDFLARE_ACCOUNT_ID!,
           ativo: true
         }
       });
     }
 
     // Criar zona no Cloudflare
-    const zoneData = await createCloudflareZone({
-      apiToken: MASTER_CLOUDFLARE_CONFIG.apiToken,
-      email: MASTER_CLOUDFLARE_CONFIG.email,
-      accountId: MASTER_CLOUDFLARE_CONFIG.accountId
-    }, domain);
+    const zoneData = await createCloudflareZone(masterConfig, domain);
 
     if (!zoneData.success) {
       return NextResponse.json({ 
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
         }
       },
       create: {
-        id_loja,
+        id_loja: lojaId,
         dominio: domain,
         status: 'cloudflare_pending',
         dns_verificado: false,
@@ -143,17 +144,49 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Configurar SSL automaticamente se a zona estiver ativa
+    let sslConfigured = false;
+    let sslError = null;
+    
+    if (zone.status === 'active') {
+      try {
+        console.log(`Configurando SSL automático para zona: ${zone.id}`);
+        await setupAutomaticSSL(config, zone.id);
+        
+        // Atualizar zona no banco com informações SSL
+        await prisma.cloudflare_zones.update({
+          where: { id: savedZone.id },
+          data: {
+            ssl_enabled: true,
+            ssl_mode: 'full',
+            ssl_activated_at: new Date(),
+            always_use_https: true
+          }
+        });
+        
+        sslConfigured = true;
+        console.log('SSL configurado automaticamente');
+      } catch (error: any) {
+        console.error('Erro ao configurar SSL automático:', error);
+        sslError = error.message;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Zona criada com sucesso no Cloudflare',
       zone: savedZone,
       nameservers: zone.name_servers,
+      ssl: {
+        configured: sslConfigured,
+        error: sslError
+      },
       instructions: {
         step1: 'Acesse o painel do seu provedor de domínio',
         step2: 'Altere os nameservers para:',
         nameservers: zone.name_servers,
         step3: 'Aguarde a propagação DNS (pode levar até 24 horas)',
-        step4: 'O SSL será ativado automaticamente após a validação'
+        step4: sslConfigured ? 'SSL já foi configurado automaticamente!' : 'O SSL será ativado automaticamente após a validação'
       }
     });
 
@@ -184,7 +217,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id_loja = searchParams.get('id_loja');
+    const id_loja = searchParams.get('id_loja') || searchParams.get('storeId');
 
     if (!id_loja) {
       return NextResponse.json({ error: 'ID da loja é obrigatório' }, { status: 400 });
@@ -193,7 +226,7 @@ export async function GET(request: NextRequest) {
     // Verificar se o usuário tem acesso à loja
     const loja = await prisma.loja_admin.findFirst({
       where: {
-        id: id_loja,
+        id: lojaId,
         user_id: decoded.userId
       }
     });
@@ -255,9 +288,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    const { zone_id, id_loja } = await request.json();
+    const { zone_id, id_loja, storeId } = await request.json();
+    const lojaId = storeId || id_loja;
 
-    if (!zone_id || !id_loja) {
+    if (!zone_id || !lojaId) {
       return NextResponse.json({ 
         error: 'ID da zona e ID da loja são obrigatórios' 
       }, { status: 400 });
@@ -280,7 +314,7 @@ export async function DELETE(request: NextRequest) {
       where: {
         id: zone_id,
         config: {
-          id_loja
+          id_loja: lojaId
         }
       }
     });

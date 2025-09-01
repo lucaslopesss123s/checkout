@@ -73,12 +73,14 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Buscar domínio personalizado verificado para esta loja
+    // Buscar domínio personalizado para esta loja (incluindo status 'active')
     const dominio = await prisma.dominios.findFirst({
       where: {
         id_loja: lojaShopify.id_loja,
-        status: 'verified',
-        dns_verificado: true,
+        OR: [
+          { status: 'verified' },
+          { status: 'active' }
+        ],
         ativo: true
       }
     })
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.json(
         { 
           error: 'Domínio não configurado',
-          message: 'Esta loja não possui um domínio personalizado configurado e verificado. Configure um domínio na aba "Domínio" do dashboard.',
+          message: 'Esta loja não possui um domínio personalizado configurado e ativo. Configure um domínio na aba "Domínio" do dashboard.',
           configured: false,
           requires_domain: true
         },

@@ -75,19 +75,9 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
 // GET - Listar domínios
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const idLoja = searchParams.get('id_loja')
-    
-    if (!idLoja) {
-      return NextResponse.json(
-        { error: 'ID da loja é obrigatório' },
-        { status: 400 }
-      )
-    }
-    
+    // Buscar todos os domínios ativos (sem filtro por loja)
     const dominios = await prisma.dominios.findMany({
       where: {
-        id_loja: idLoja,
         ativo: true
       },
       include: {

@@ -451,6 +451,11 @@ model Cloudflare_zones {
   created_on        DateTime? // Data de criação no Cloudflare
   modified_on       DateTime? // Data de modificação no Cloudflare
   activated_on      DateTime? // Data de ativação no Cloudflare
+  // Campos SSL
+  ssl_enabled       Boolean  @default(false) // Se SSL Universal está ativo
+  ssl_mode          String?  // off, flexible, full, strict
+  ssl_activated_at  DateTime? // Data de ativação do SSL
+  always_use_https  Boolean  @default(false) // Se Always Use HTTPS está ativo
   // Relacionamento com configuração
   config_id         String
   config            Cloudflare_config @relation(fields: [config_id], references: [id], onDelete: Cascade)
