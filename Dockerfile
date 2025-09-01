@@ -57,7 +57,6 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV 
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
