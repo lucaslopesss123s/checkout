@@ -206,14 +206,39 @@ export default function ShopifyIntegrationPage() {
   }
 
   const saveConfiguration = async () => {
+    if (!selectedStore) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma loja primeiro",
+        variant: "destructive"
+      })
+      return
+    }
+
     setLoading(true)
     
     try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Token de autenticação não encontrado",
+          variant: "destructive"
+        })
+        return
+      }
+
       // Salvar configuração da loja Shopify
       const shopifyResponse = await fetch('/api/shopify/stores', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...config,
+          id_loja: selectedStore.id
+        })
       })
       
       if (!shopifyResponse.ok) {

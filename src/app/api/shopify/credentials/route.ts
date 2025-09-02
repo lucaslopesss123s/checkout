@@ -20,15 +20,21 @@ function encrypt(text: string): string {
 
 // Função para descriptografar dados sensíveis
 function decrypt(encryptedText: string): string {
-  const algorithm = 'aes-256-cbc';
-  const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
-  const textParts = encryptedText.split(':');
-  const iv = Buffer.from(textParts.shift()!, 'hex');
-  const encryptedData = textParts.join(':');
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  try {
+    const algorithm = 'aes-256-cbc';
+    const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
+    const textParts = encryptedText.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedData = textParts.join(':');
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('Erro na descriptografia:', error);
+    // Se a descriptografia falhar, retornar o texto original (pode ser que não esteja criptografado)
+    return encryptedText;
+  }
 }
 
 // POST - Salvar credenciais Shopify
