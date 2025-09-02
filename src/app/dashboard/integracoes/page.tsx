@@ -53,13 +53,19 @@ export default function IntegracaoPage() {
         }
       })
       
-      const shopifyData = await shopifyResponse.json()
+      let shopifyConfigured = false
+      
+      if (shopifyResponse.ok) {
+        const shopifyData = await shopifyResponse.json()
+        // Se a API retornou dados, significa que a configuração existe
+        shopifyConfigured = !!(shopifyData.id && shopifyData.dominio_api)
+      }
       
       setIntegrations(prev => prev.map(integration => {
         if (integration.id === 'shopify') {
           return {
             ...integration,
-            status: shopifyData.configured ? 'connected' : 'disconnected'
+            status: shopifyConfigured ? 'connected' : 'disconnected'
           }
         }
         return integration

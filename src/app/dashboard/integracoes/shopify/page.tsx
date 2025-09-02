@@ -74,8 +74,43 @@ export default function ShopifyIntegrationPage() {
   }, [selectedStore])
 
   const loadExistingConfig = async () => {
-    // Aqui você carregaria a configuração existente do banco de dados
-    // Por enquanto, vamos simular
+    if (!selectedStore) return
+    
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      // Buscar configuração Shopify existente
+      const shopifyResponse = await fetch(`/api/shopify/credentials?storeId=${selectedStore.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (shopifyResponse.ok) {
+        const existingConfig = await shopifyResponse.json()
+        
+        setConfig({
+          id: existingConfig.id,
+          chave_api: existingConfig.chave_api || '',
+          chave_secreta: existingConfig.chave_secreta || '',
+          token_api: existingConfig.token_api || '',
+          dominio_api: existingConfig.dominio_api || '',
+          id_loja: selectedStore.id
+        })
+        setConnectionStatus('success')
+        
+        toast({
+          title: "Configuração carregada",
+          description: "Configuração Shopify existente foi carregada automaticamente",
+          variant: "default"
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração existente:', error)
+    }
   }
 
   const handleConfigChange = (field: keyof ShopifyConfig, value: string) => {
@@ -87,10 +122,19 @@ export default function ShopifyIntegrationPage() {
   }
 
   const testConnection = async () => {
-    if (!config.dominio_api) {
+    if (!config.dominio_api || !config.chave_api || !config.chave_secreta || !config.token_api) {
       toast({
         title: "Erro",
-        description: "Domínio da API é obrigatório",
+        description: "Todos os campos são obrigatórios para testar a conexão",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!selectedStore) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma loja primeiro",
         variant: "destructive"
       })
       return
@@ -99,13 +143,42 @@ export default function ShopifyIntegrationPage() {
     setTestingConnection(true)
     
     try {
-      // Simular teste de conexão
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Token de autenticação não encontrado",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Primeiro, salvar as credenciais temporariamente para teste
+      const saveResponse = await fetch('/api/shopify/credentials', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          shopifyDomain: config.dominio_api,
+          apiToken: config.token_api,
+          apiKey: config.chave_api,
+          apiSecret: config.chave_secreta,
+          storeId: selectedStore.id
+        })
+      })
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json()
+        throw new Error(errorData.error || 'Erro ao salvar configuração para teste')
+      }
       
-      const response = await fetch(`/api/shopify/config?domain=${config.dominio_api}`)
+      // Testar conexão usando a API de checkout
+      const response = await fetch(`/api/shopify/checkout?domain=${config.dominio_api}`)
       const result = await response.json()
       
-      if (result.configured) {
+      if (response.ok && result.configured) {
         setConnectionStatus('success')
         toast({
           title: "Sucesso",
@@ -115,15 +188,16 @@ export default function ShopifyIntegrationPage() {
         setConnectionStatus('error')
         toast({
           title: "Erro",
-          description: "Não foi possível conectar com a loja Shopify",
+          description: result.error || "Não foi possível conectar com a loja Shopify",
           variant: "destructive"
         })
       }
     } catch (error) {
+      console.error('Erro ao testar conexão:', error)
       setConnectionStatus('error')
       toast({
         title: "Erro",
-        description: "Erro ao testar conexão",
+        description: error instanceof Error ? error.message : "Erro ao testar conexão",
         variant: "destructive"
       })
     } finally {
