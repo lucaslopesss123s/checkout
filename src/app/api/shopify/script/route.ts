@@ -178,7 +178,8 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
                 
                 log('Interceptando botão:', button);
                 
-                button.addEventListener('click', async (e) => {
+                // Criar função nomeada para compatibilidade com strict mode
+                const handleButtonClick = async (e) => {
                     // Se for botão de adicionar ao carrinho, deixar funcionar normalmente
                     if (button.name === 'add' || button.matches('input[name="add"]')) {
                         log('Botão de adicionar ao carrinho, não interceptando');
@@ -193,14 +194,16 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
                     if (!success) {
                         log('Falha no redirecionamento, permitindo comportamento padrão');
                         // Remover o listener temporariamente e clicar novamente
-                        button.removeEventListener('click', arguments.callee);
+                        button.removeEventListener('click', handleButtonClick);
                         button.click();
                         // Reativar o listener após um pequeno delay
                         setTimeout(() => {
-                            button.addEventListener('click', arguments.callee);
+                            button.addEventListener('click', handleButtonClick);
                         }, 100);
                     }
-                });
+                };
+                
+                button.addEventListener('click', handleButtonClick);
                 
                 button.dataset.shopifyIntegrationIntercepted = 'true';
             });
@@ -218,7 +221,8 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
             
             log('Interceptando formulário:', form);
             
-            form.addEventListener('submit', async (e) => {
+            // Criar função nomeada para compatibilidade com strict mode
+            const handleFormSubmit = async (e) => {
                 // Se for formulário de adicionar ao carrinho, deixar funcionar
                 if (form.action.includes('/cart/add')) {
                     log('Formulário de adicionar ao carrinho, não interceptando');
@@ -231,10 +235,12 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
                 
                 if (!success) {
                     log('Falha no redirecionamento, permitindo envio padrão');
-                    form.removeEventListener('submit', arguments.callee);
+                    form.removeEventListener('submit', handleFormSubmit);
                     form.submit();
                 }
-            });
+            };
+            
+            form.addEventListener('submit', handleFormSubmit);
             
             form.dataset.shopifyIntegrationIntercepted = 'true';
         });
