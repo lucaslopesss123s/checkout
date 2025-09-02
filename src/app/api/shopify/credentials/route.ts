@@ -21,11 +21,31 @@ function encrypt(text: string): string {
 // Função para descriptografar dados sensíveis
 function decrypt(encryptedText: string): string {
   try {
+    // Verificar se o texto parece estar criptografado (contém ':')
+    if (!encryptedText || !encryptedText.includes(':')) {
+      // Se não contém ':', provavelmente não está criptografado
+      return encryptedText;
+    }
+
     const algorithm = 'aes-256-cbc';
     const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
     const textParts = encryptedText.split(':');
+    
+    // Verificar se temos pelo menos 2 partes (IV e dados)
+    if (textParts.length < 2) {
+      console.warn('Formato de criptografia inválido, retornando texto original');
+      return encryptedText;
+    }
+
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedData = textParts.join(':');
+    
+    // Verificar se o IV tem o tamanho correto (16 bytes para AES)
+    if (iv.length !== 16) {
+      console.warn('IV inválido, retornando texto original');
+      return encryptedText;
+    }
+
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
