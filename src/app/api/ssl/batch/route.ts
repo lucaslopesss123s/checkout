@@ -41,8 +41,10 @@ export async function POST(request: NextRequest) {
     const domains = await prisma.dominios.findMany({
       where: {
         id: { in: domainIds },
-        status: 'verified',
-        dns_verificado: true
+        status: {
+          in: ['verified', 'active']
+        },
+        ativo: true
       }
     });
 

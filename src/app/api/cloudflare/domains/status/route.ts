@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const domain = searchParams.get('domain')
     const zoneId = searchParams.get('zone_id')
+    const storeId = searchParams.get('store_id')
 
     if (!domain && !zoneId) {
       return NextResponse.json(
@@ -172,10 +173,10 @@ export async function GET(request: NextRequest) {
     // Atualizar status no banco de dados se o domínio existir
     if (domain) {
       try {
-        await prisma.dominios.updateMany({
+        const updateResult = await prisma.dominios.updateMany({
           where: {
             dominio: domain,
-            id_loja: user.id
+            id_loja: storeId || user.id
           },
           data: {
             status: zone.status,
@@ -185,7 +186,7 @@ export async function GET(request: NextRequest) {
           }
         })
       } catch (error) {
-        console.log('[info] Erro ao atualizar domínio no banco:', error)
+        console.error('Erro ao atualizar domínio no banco:', error)
       }
     }
 

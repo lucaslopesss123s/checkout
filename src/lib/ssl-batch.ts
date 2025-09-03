@@ -101,8 +101,8 @@ async function activateSSLSingle(
       throw new Error('Domínio não encontrado');
     }
 
-    if (dominio.status !== 'verified') {
-      throw new Error('Domínio não está verificado');
+    if (!['verified', 'active'].includes(dominio.status)) {
+      throw new Error('Domínio não está verificado ou ativo');
     }
 
     const fullDomain = `checkout.${dominio.dominio}`;
@@ -239,9 +239,10 @@ async function activateSSLSingle(
 export async function getEligibleDomainsForSSL(): Promise<Array<{id: string, domain: string}>> {
   const domains = await prisma.dominios.findMany({
     where: {
-      status: 'verified',
-      dns_verificado: true,
-      ssl_ativo: false
+      status: {
+        in: ['verified', 'active']
+      },
+      ativo: true
     },
     select: {
       id: true,

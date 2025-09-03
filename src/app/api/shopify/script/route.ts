@@ -39,11 +39,25 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
             '.cart__checkout-button', // Botão checkout do carrinho
             '.checkout-button', // Botão checkout genérico
             'input[type="submit"][value*="checkout" i]', // Input submit com checkout
-            'button[type="submit"]:contains("Checkout")', // Botão com texto checkout
+            'button[type="submit"]', // Botões submit (verificaremos o texto via JavaScript)
+            '.cart-drawer__checkout', // Botão checkout do drawer
+            '.drawer__checkout', // Botão checkout do drawer (variação)
+            '[name="goto_pp"]', // Botão PayPal checkout
+            '[name="goto_gc"]', // Botão Google Pay checkout
+            '.shopify-payment-button__button--unbranded', // Botão checkout não branded
+            'button[form="cart"]', // Botão associado ao form do carrinho
+            '.cart__ctas button', // Botões na área de CTAs do carrinho
         ],
         excludeSelectors: [
             '.shopify-payment-button', // Botões de pagamento rápido
             '.dynamic-checkout__content', // Conteúdo de checkout dinâmico
+            '.shopify-payment-button__button', // Botões específicos de pagamento
+            '[data-shopify-buttoncontainer]', // Container de botões Shopify
+            '.additional-checkout-buttons', // Botões adicionais de checkout
+            '.wallet-buttons', // Botões de carteira digital
+            '[data-testid="ShopifyPay-button"]', // Botão Shopify Pay
+            '[data-testid="PayPalExpress-button"]', // Botão PayPal Express
+            '[data-testid="GooglePay-button"]', // Botão Google Pay
         ]
     };
     
@@ -119,11 +133,13 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
                 return false;
             }
             
-            // Criar sessão de checkout
+            // Criar sessão de checkout no formato esperado pela API
             const checkoutData = {
-                items: cartItems,
-                shop: shopInfo,
-                timestamp: Date.now()
+                shop_domain: shopInfo.domain,
+                cart_items: cartItems,
+                customer: shopInfo.customer,
+                currency: shopInfo.currency,
+                total_price: cartItems.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0).toFixed(2)
             };
             
             const response = await fetch(CHECKOUT_API_URL, {
@@ -169,6 +185,17 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
                 if (isExcluded) {
                     log('Botão excluído:', button);
                     return;
+                }
+                
+                // Para botões submit genéricos, verificar se contém texto relacionado a checkout
+                if (selector === 'button[type="submit"]') {
+                    const buttonText = (button.textContent || button.innerText || '').toLowerCase();
+                    const hasCheckoutText = /checkout|finalizar|comprar|pagar/i.test(buttonText);
+                    
+                    if (!hasCheckoutText) {
+                        log('Botão submit sem texto de checkout:', buttonText);
+                        return;
+                    }
                 }
                 
                 // Verificar se já foi interceptado
@@ -332,12 +359,13 @@ export async function GET(request: NextRequest) {
     
     // Se storeId for fornecido, usar busca direta por loja
     if (storeId) {
-      // Buscar domínio personalizado verificado para esta loja
+      // Buscar domínio personalizado ativo para esta loja
       const dominio = await prisma.dominios.findFirst({
         where: {
           id_loja: storeId,
-          status: 'verified',
-          dns_verificado: true,
+          status: {
+            in: ['verified', 'active']
+          },
           ativo: true
         }
       })
@@ -354,12 +382,10 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Usar URL baseada no ambiente e host
-      const isDevelopment = process.env.NODE_ENV === 'development'
-      const isLocalhost = request.url.includes('localhost')
-      const useLocalhost = isDevelopment || isLocalhost
-      const checkoutBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
-      const configBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
+      // Sempre usar o domínio personalizado para o script (mesmo em desenvolvimento)
+    // O script será executado no Shopify e precisa acessar o domínio personalizado
+    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
+    const configBaseUrl = `https://checkout.${dominio.dominio}`
 
       // Gerar o script JavaScript dinamicamente
       const script = generateScriptContent(storeId, dominio.dominio, checkoutBaseUrl, configBaseUrl)
@@ -397,12 +423,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar domínio personalizado verificado para esta loja
+    // Buscar domínio personalizado ativo para esta loja
     const dominio = await prisma.dominios.findFirst({
       where: {
         id_loja: lojaShopify.id_loja,
-        status: 'verified',
-        dns_verificado: true,
+        status: {
+          in: ['verified', 'active']
+        },
         ativo: true
       }
     })
@@ -419,12 +446,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Usar URL baseada no ambiente e host
-    const isDevelopment = process.env.NODE_ENV === 'development'
-    const isLocalhost = request.url.includes('localhost')
-    const useLocalhost = isDevelopment || isLocalhost
-    const checkoutBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
-    const configBaseUrl = useLocalhost ? 'http://localhost:3000' : `https://checkout.${dominio.dominio}`
+    // Sempre usar o domínio personalizado para o script (mesmo em desenvolvimento)
+    // O script será executado no Shopify e precisa acessar o domínio personalizado
+    const checkoutBaseUrl = `https://checkout.${dominio.dominio}`
+    const configBaseUrl = `https://checkout.${dominio.dominio}`
 
     // Gerar o script JavaScript dinamicamente usando a função generateScriptContent
     const script = generateScriptContent(lojaShopify.id_loja, dominio.dominio, checkoutBaseUrl, configBaseUrl)

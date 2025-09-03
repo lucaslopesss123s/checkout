@@ -320,6 +320,7 @@ model Dominios {
   dns_verificado Boolean @default(false) // Se o DNS foi verificado com sucesso
   ssl_ativo     Boolean @default(false) // Se o SSL está ativo
   ssl_certificate_id String? @unique // ID do certificado SSL associado
+  cloudflare_zone_id String? // ID da zona no Cloudflare
   ultima_verificacao DateTime? // Última vez que foi verificado
   configuracao_dns Json? // Configurações DNS necessárias
   erro_verificacao String? // Último erro de verificação, se houver

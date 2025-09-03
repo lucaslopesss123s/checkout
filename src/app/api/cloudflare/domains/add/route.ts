@@ -83,14 +83,29 @@ export async function POST(request: NextRequest) {
     const zone = response.result
     console.log(`[info] Zona criada com sucesso: ${zone.id}`)
 
+    // Buscar a loja do usuário
+    const userStore = await prisma.loja_admin.findFirst({
+      where: {
+        user_id: user.id
+      }
+    })
+
+    if (!userStore) {
+      return NextResponse.json(
+        { error: 'Loja não encontrada para o usuário' },
+        { status: 404 }
+      )
+    }
+
     // Salvar no banco de dados
     const savedDomain = await prisma.dominios.create({
       data: {
-        id_loja: user.id, // Assumindo que user.id é o ID da loja
+        id_loja: userStore.id, // ID correto da loja
         dominio: domain,
         status: 'pending',
         dns_verificado: false,
         ssl_ativo: false,
+        cloudflare_zone_id: zone.id, // Armazenar o ID da zona do Cloudflare
         configuracao_dns: {
           nameservers: zone.name_servers || [],
           zone_id: zone.id

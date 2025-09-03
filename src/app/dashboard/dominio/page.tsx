@@ -30,6 +30,7 @@ export default function DominioPage() {
   const [newDomain, setNewDomain] = useState('')
   const [isCreatingZone, setIsCreatingZone] = useState(false)
   const [isCheckingStatus, setIsCheckingStatus] = useState<string | null>(null)
+  const [isDeletingDomain, setIsDeletingDomain] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -46,16 +47,15 @@ export default function DominioPage() {
       if (response.ok) {
         const domains = await response.json()
         const zones = domains
-          .filter((d: any) => d.configuracao_dns && d.configuracao_dns.zone_id)
           .map((d: any) => ({
             id: d.id,
             domain: d.dominio,
-            status: d.status === 'active' || d.status === 'verified' ? 'active' : 'pending',
+            status: d.status === 'active' ? 'active' : d.status === 'verified' ? 'active' : d.status === 'failed' ? 'failed' : 'pending',
             nameservers: d.configuracao_dns?.nameservers || d.nameservers || [],
             createdAt: d.createdAt,
             lastChecked: d.ultima_verificacao,
             sslActive: d.ssl_ativo,
-            cloudflareZoneId: d.configuracao_dns?.zone_id,
+            cloudflareZoneId: d.configuracao_dns?.zone_id || d.cloudflare_zone_id,
             dnsConfigured: d.dns_verificado
           }))
         setCloudflareZones(zones)
@@ -237,6 +237,56 @@ export default function DominioPage() {
     })
   }
 
+  const deleteDomain = async (domainId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este domínio? Esta ação não pode ser desfeita.')) {
+      return
+    }
+
+    setIsDeletingDomain(domainId)
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast({
+          title: 'Erro',
+          description: 'Token de autenticação não encontrado',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const response = await fetch(`/api/cloudflare/domains/delete?id=${domainId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        toast({
+          title: 'Sucesso!',
+          description: 'Domínio excluído com sucesso.'
+        })
+        // Recarregar a lista de domínios
+        await loadCloudflareZones()
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: 'Erro',
+          description: errorData.error || 'Erro ao excluir domínio.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao excluir domínio. Tente novamente.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeletingDomain(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -324,7 +374,7 @@ export default function DominioPage() {
                     <div>
                       <h3 className="font-medium text-lg">{zone.domain}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Criado em {new Date(zone.createdAt).toLocaleDateString('pt-BR')}
+                        Domínio: {zone.domain}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -356,6 +406,24 @@ export default function DominioPage() {
                           <RefreshCw className="h-4 w-4" />
                         )}
                         {isCheckingStatus === zone.id ? 'Verificando...' : 'Verificar Status'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          deleteDomain(zone.id)
+                        }}
+                        disabled={isDeletingDomain === zone.id}
+                        style={{ pointerEvents: 'auto', zIndex: 9999 }}
+                      >
+                        {isDeletingDomain === zone.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        {isDeletingDomain === zone.id ? 'Excluindo...' : 'Excluir'}
                       </Button>
                       {zone.sslActive && (
                         <Badge className="bg-blue-100 text-blue-800 border-blue-200">

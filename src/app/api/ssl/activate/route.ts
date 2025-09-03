@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response)
     }
 
-    if (dominio.status !== 'verified' || !dominio.dns_verificado) {
+    if (!['verified', 'active'].includes(dominio.status) || !dominio.ativo) {
       const response = NextResponse.json(
-        { error: 'Domínio deve estar verificado antes de ativar SSL' },
+        { error: 'Domínio deve estar verificado ou ativo antes de ativar SSL' },
         { status: 400 }
       )
       return addCorsHeaders(response)
