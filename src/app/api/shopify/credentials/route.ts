@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     let userId: string;
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-      userId = decoded.userId;
+      const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; userId?: string };
+      userId = decoded.id || decoded.userId; // Suporte para ambos os formatos
     } catch (error) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
@@ -171,8 +171,8 @@ export async function GET(request: NextRequest) {
     let userId: string;
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-      userId = decoded.userId;
+      const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; userId?: string };
+      userId = decoded.id || decoded.userId; // Suporte para ambos os formatos
     } catch (error) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }

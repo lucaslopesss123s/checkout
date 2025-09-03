@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    const userId = decoded.userId
+    const userId = decoded.id || decoded.userId // Suporte para ambos os formatos
 
     const body = await request.json()
     const { id_loja, api_token, email } = body

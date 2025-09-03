@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    const userId = decoded.userId
+    const userId = decoded.id || decoded.userId // Suporte para ambos os formatos
 
     const { searchParams } = new URL(request.url)
     const storeId = searchParams.get('storeId') || searchParams.get('id_loja')

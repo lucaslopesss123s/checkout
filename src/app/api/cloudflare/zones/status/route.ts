@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const loja = await prisma.loja_admin.findFirst({
       where: {
         id: id_loja,
-        user_id: decoded.userId
+        user_id: decoded.id || decoded.userId // Suporte para ambos os formatos
       }
     });
 
@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
     const loja = await prisma.loja_admin.findFirst({
       where: {
         id: id_loja,
-        user_id: decoded.userId
+        user_id: decoded.id || decoded.userId // Suporte para ambos os formatos
       }
     });
 
