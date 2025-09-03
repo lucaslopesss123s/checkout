@@ -1,61 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-char-encryption-key-here';
-
-// Função para criptografar dados sensíveis
-function encrypt(text: string): string {
-  const algorithm = 'aes-256-cbc';
-  const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-// Função para descriptografar dados sensíveis
-function decrypt(encryptedText: string): string {
-  try {
-    // Verificar se o texto parece estar criptografado (contém ':')
-    if (!encryptedText || !encryptedText.includes(':')) {
-      // Se não contém ':', provavelmente não está criptografado
-      return encryptedText;
-    }
-
-    const algorithm = 'aes-256-cbc';
-    const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
-    const textParts = encryptedText.split(':');
-    
-    // Verificar se temos pelo menos 2 partes (IV e dados)
-    if (textParts.length < 2) {
-      console.warn('Formato de criptografia inválido, retornando texto original');
-      return encryptedText;
-    }
-
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = textParts.join(':');
-    
-    // Verificar se o IV tem o tamanho correto (16 bytes para AES)
-    if (iv.length !== 16) {
-      console.warn('IV inválido, retornando texto original');
-      return encryptedText;
-    }
-
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (error) {
-    console.error('Erro na descriptografia:', error);
-    // Se a descriptografia falhar, retornar o texto original (pode ser que não esteja criptografado)
-    return encryptedText;
-  }
-}
 
 // POST - Salvar credenciais Shopify
 export async function POST(request: NextRequest) {
@@ -103,10 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Loja não encontrada ou não pertence ao usuário' }, { status: 404 });
     }
 
-    // Criptografar dados sensíveis
-    const encryptedApiToken = encrypt(apiToken);
-    const encryptedApiKey = encrypt(apiKey);
-    const encryptedApiSecret = encrypt(apiSecret);
+    // Dados salvos em texto plano (sem criptografia)
 
     // Verificar se já existe uma configuração Shopify para esta loja
     const existingConfig = await prisma.loja_Shopify.findFirst({
@@ -124,9 +69,9 @@ export async function POST(request: NextRequest) {
           id: existingConfig.id
         },
         data: {
-          chave_api: encryptedApiKey,
-          chave_secreta: encryptedApiSecret,
-          token_api: encryptedApiToken,
+          chave_api: apiKey,
+          chave_secreta: apiSecret,
+          token_api: apiToken,
           dominio_api: shopifyDomain,
           updatedAt: new Date()
         }
@@ -135,9 +80,9 @@ export async function POST(request: NextRequest) {
       // Criar nova configuração
       shopifyConfig = await prisma.loja_Shopify.create({
         data: {
-          chave_api: encryptedApiKey,
-          chave_secreta: encryptedApiSecret,
-          token_api: encryptedApiToken,
+          chave_api: apiKey,
+          chave_secreta: apiSecret,
+          token_api: apiToken,
           dominio_api: shopifyDomain,
           id_loja: storeId
         }
@@ -207,18 +152,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Configuração Shopify não encontrada' }, { status: 404 });
     }
 
-    // Descriptografar dados para retorno (para visualização/edição)
-    const decryptedConfig = {
+    // Retornar dados em texto plano (sem descriptografia)
+    const config = {
       id: shopifyConfig.id,
       dominio_api: shopifyConfig.dominio_api,
-      chave_api: shopifyConfig.chave_api ? decrypt(shopifyConfig.chave_api) : '',
-      chave_secreta: shopifyConfig.chave_secreta ? decrypt(shopifyConfig.chave_secreta) : '',
-      token_api: shopifyConfig.token_api ? decrypt(shopifyConfig.token_api) : '',
+      chave_api: shopifyConfig.chave_api || '',
+      chave_secreta: shopifyConfig.chave_secreta || '',
+      token_api: shopifyConfig.token_api || '',
       createdAt: shopifyConfig.createdAt,
       updatedAt: shopifyConfig.updatedAt
     };
 
-    return NextResponse.json(decryptedConfig, { status: 200 });
+    return NextResponse.json(config, { status: 200 });
 
   } catch (error) {
     console.error('Erro ao buscar credenciais Shopify:', error);

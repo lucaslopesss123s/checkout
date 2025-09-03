@@ -57,5 +57,22 @@ ssl-certificates/
 *.sqlite3
 
 # Scripts de teste e configuração
-check-*.js
-seed-*.sql
+# check-*.js
+# seed-*.sql
+# test_*.js
+# debug_*.js
+
+# Logs e arquivos temporários (comentado para incluir no repo)
+# *.log
+# .tmp/
+# temp/
+
+# Arquivos de backup (comentado para incluir no repo)
+# *.bak
+# *.backup
+
+# IDEs (comentado para incluir no repo)
+# .vscode/
+# .idea/
+# *.swp
+# *.swo
