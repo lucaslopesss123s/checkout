@@ -85,33 +85,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Determinar URLs baseadas no ambiente e domínio personalizado
-    const isDevelopment = process.env.NODE_ENV === 'development'
-    const isLocalhost = request.url.includes('localhost')
-    const useLocalhost = isDevelopment || isLocalhost
-    
-    let baseUrl
-    if (useLocalhost) {
-      baseUrl = 'http://localhost:3000'
-    } else if (dominio) {
-      baseUrl = `https://checkout.${dominio.dominio}`
-    } else {
-      // Em produção, exigir domínio personalizado
-      if (!useLocalhost) {
-        const response = NextResponse.json(
-          { 
-            error: 'Domínio não configurado',
-            message: 'Esta loja não possui um domínio personalizado configurado e ativo. Configure um domínio na aba "Domínio" do dashboard.',
-            configured: false,
-            requires_domain: true
-          },
-          { status: 400 }
-        )
-        return addCorsHeaders(response)
-      }
-      // Em desenvolvimento, usar localhost mesmo sem domínio configurado
-      baseUrl = 'http://localhost:3000'
+    // Em produção, sempre exigir domínio personalizado configurado
+    if (!dominio) {
+      const response = NextResponse.json(
+        { 
+          error: 'Domínio não configurado',
+          message: 'Esta loja não possui um domínio personalizado configurado e ativo. Configure um domínio na aba "Domínio" do dashboard.',
+          configured: false,
+          requires_domain: true
+        },
+        { status: 400 }
+      )
+      return addCorsHeaders(response)
     }
+    
+    const baseUrl = `https://checkout.${dominio.dominio}`
 
     const response = NextResponse.json({
       success: true,

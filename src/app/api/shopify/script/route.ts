@@ -28,7 +28,7 @@ function generateScriptContent(storeId: string, domainName: string, checkoutBase
     
     // Configurações do script
     const CONFIG = {
-        debug: ${process.env.NODE_ENV === 'development' ? 'true' : 'false'}, // Ativar logs de debug
+        debug: false, // Debug desabilitado para produção
         interceptCheckout: true, // Interceptar checkout padrão
         interceptCartDrawer: true, // Interceptar drawer do carrinho
         buttonSelectors: [

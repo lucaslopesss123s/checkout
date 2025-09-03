@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         console.log(`Tentando ativar SSL automaticamente para: ${dominio}`)
         
         // Fazer chamada para a API de ativação SSL
-        const sslResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/ssl/activate`, {
+        const sslResponse = await fetch(`${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://checkout.pesquisaencomenda.online'}/api/ssl/activate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
