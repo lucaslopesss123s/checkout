@@ -29,11 +29,12 @@ export async function GET(request: NextRequest) {
     const stream = new ReadableStream({
       start(controller) {
         let isClosed = false
+        let interval: NodeJS.Timeout | null = null
 
         const sendUpdate = async () => {
           try {
             // Verificar se o controller ainda está aberto
-            if (isClosed) {
+            if (isClosed || controller.desiredSize === null) {
               return
             }
 
@@ -67,24 +68,42 @@ export async function GET(request: NextRequest) {
             }))
 
             // Enviar dados via SSE apenas se o controller ainda estiver aberto
-            if (!isClosed) {
-              const data = JSON.stringify({
-                type: 'sessions_update',
-                data: processedSessions,
-                timestamp: new Date().toISOString()
-              })
+            if (!isClosed && controller.desiredSize !== null) {
+              try {
+                const data = JSON.stringify({
+                  type: 'sessions_update',
+                  data: processedSessions,
+                  timestamp: new Date().toISOString()
+                })
 
-              controller.enqueue(`data: ${data}\n\n`)
+                controller.enqueue(`data: ${data}\n\n`)
+              } catch (enqueueError) {
+                console.error('Erro ao enviar dados via SSE:', enqueueError)
+                isClosed = true
+                if (interval) {
+                  clearInterval(interval)
+                  interval = null
+                }
+              }
             }
           } catch (error) {
             console.error('Erro ao buscar sessões em tempo real:', error)
             // Só enviar erro se o controller ainda estiver aberto
-            if (!isClosed) {
+            if (!isClosed && controller.desiredSize !== null) {
               try {
-                controller.enqueue(`data: ${JSON.stringify({ type: 'error', message: 'Erro ao buscar dados' })}\n\n`)
+                const errorData = JSON.stringify({ 
+                  type: 'error', 
+                  message: 'Erro ao buscar dados',
+                  timestamp: new Date().toISOString()
+                })
+                controller.enqueue(`data: ${errorData}\n\n`)
               } catch (controllerError) {
-                // Controller já foi fechado, marcar como fechado
+                console.error('Controller já foi fechado:', controllerError)
                 isClosed = true
+                if (interval) {
+                  clearInterval(interval)
+                  interval = null
+                }
               }
             }
           }
@@ -94,12 +113,32 @@ export async function GET(request: NextRequest) {
         sendUpdate()
 
         // Configurar intervalo para atualizações (a cada 5 segundos)
-        const interval = setInterval(sendUpdate, 5000)
+        interval = setInterval(() => {
+          if (!isClosed && controller.desiredSize !== null) {
+            sendUpdate()
+          } else {
+            if (interval) {
+              clearInterval(interval)
+              interval = null
+            }
+          }
+        }, 5000)
 
         // Cleanup quando a conexão for fechada
         return () => {
           isClosed = true
-          clearInterval(interval)
+          if (interval) {
+            clearInterval(interval)
+            interval = null
+          }
+          try {
+            if (controller.desiredSize !== null) {
+              controller.close()
+            }
+          } catch (closeError) {
+            // Controller já foi fechado
+            console.log('Controller já estava fechado')
+          }
         }
       }
     })

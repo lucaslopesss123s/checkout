@@ -2,10 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import dns from 'dns'
 import { promisify } from 'util'
+import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient()
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 const resolveCname = promisify(dns.resolveCname)
 const resolve4 = promisify(dns.resolve4)
+
+// IPs do Cloudflare (quando proxy está ativo)
+const CLOUDFLARE_IPS = [
+  '172.67.132.113',
+  '104.21.4.208',
+  // Adicionar outros IPs do Cloudflare conforme necessário
+]
+
+// Função para verificar se um IP pertence ao Cloudflare
+function isCloudflareIP(ip: string): boolean {
+  return CLOUDFLARE_IPS.includes(ip) || 
+         ip.startsWith('172.67.') || 
+         ip.startsWith('104.21.') ||
+         ip.startsWith('198.41.') ||
+         ip.startsWith('162.158.')
+}
 
 // Função para verificar DNS
 async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
@@ -39,11 +57,23 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
       try {
         const aRecords = await resolve4(fullDomain)
         if (aRecords && aRecords.length > 0) {
-          return {
-            verificado: false,
-            tipo: 'A',
-            valor: aRecords.join(', '),
-            erro: 'Domínio tem registro A, mas é necessário um CNAME apontando para checkout.lojafacil.com'
+          // Verificar se usa Cloudflare proxy
+          const cloudflareIPs = aRecords.filter(ip => isCloudflareIP(ip))
+          
+          if (cloudflareIPs.length > 0) {
+            return {
+              verificado: true,
+              tipo: 'A',
+              valor: aRecords.join(', '),
+              erro: null
+            }
+          } else {
+            return {
+              verificado: false,
+              tipo: 'A',
+              valor: aRecords.join(', '),
+              erro: 'Domínio tem registro A, mas é necessário um CNAME apontando para checkout.lojafacil.com ou usar Cloudflare proxy'
+            }
           }
         }
       } catch (aError) {
@@ -75,10 +105,45 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
 // GET - Listar domínios
 export async function GET(request: NextRequest) {
   try {
-    // Buscar todos os domínios ativos (sem filtro por loja)
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token de autorização necessário' }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    let userId: string
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; userId?: string }
+      userId = decoded.id || decoded.userId // Suporte para ambos os formatos
+    } catch (error) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
+    }
+
+    // Buscar lojas do usuário
+    const lojas = await prisma.loja_admin.findMany({
+      where: {
+        user_id: userId
+      },
+      select: {
+        id: true
+      }
+    })
+
+    if (lojas.length === 0) {
+      return NextResponse.json([])
+    }
+
+    const lojaIds = lojas.map(loja => loja.id)
+
+    // Buscar domínios das lojas do usuário
     const dominios = await prisma.dominios.findMany({
       where: {
-        ativo: true
+        ativo: true,
+        id_loja: {
+          in: lojaIds
+        }
       },
       include: {
         ssl_certificate: true

@@ -4,20 +4,31 @@
 
 **Sintoma**: Token funciona em desenvolvimento (Trae) mas é considerado inválido em produção (Easypanel)
 
-**Causa Provável**: Diferenças na configuração entre ambientes
+**Causa Identificada**: A variável `JWT_SECRET` não está configurada no arquivo `.env` de produção no EasyPanel
+
+**Impacto**: Todas as APIs que usam autenticação JWT retornam erro 401 "Invalid Token"
 
 ## 🔍 Diagnóstico Rápido
 
 ### 1. Verificar Variáveis de Ambiente no Easypanel
 
-**CRÍTICO**: A variável `JWT_SECRET` deve ser **EXATAMENTE** igual em desenvolvimento e produção.
+**CRÍTICO**: A variável `JWT_SECRET` está AUSENTE no arquivo `.env` de produção.
 
+**Configuração Atual (INCOMPLETA)**:
 ```bash
-# No Easypanel, verifique se estas variáveis estão definidas:
-JWT_SECRET=sua_chave_secreta_aqui
-DATABASE_URL=sua_url_do_banco
-ENCRYPTION_KEY=sua_chave_de_criptografia
+DATABASE_URL="postgresql://root:Zreel123!@easypanel.lockpainel.shop:1111/jcheckout"
+NEXT_PUBLIC_APP_URL="https://zollim-checkout.rboln1.easypanel.host/"
 NODE_ENV=production
+PORT=3000
+CLOUDFLARE_API_TOKEN=4dzjhUmN7Jw41oL_ZUe_5SLhq3vRafxrPA-4LXqj
+# JWT_SECRET está FALTANDO! ❌
+```
+
+**Configuração Necessária (COMPLETA)**:
+```bash
+# Adicione estas variáveis ao .env do EasyPanel:
+JWT_SECRET="your-super-secret-jwt-key-here-change-this-in-production"
+ENCRYPTION_KEY="abcdef1234567890abcdef1234567890"
 ```
 
 ### 2. Executar Script de Diagnóstico

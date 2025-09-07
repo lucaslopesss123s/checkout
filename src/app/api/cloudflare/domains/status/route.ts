@@ -142,31 +142,27 @@ export async function GET(request: NextRequest) {
       console.log('[info] Erro ao verificar DoH:', error)
     }
 
-    // Criar registro DNS para checkout se o domínio estiver ativo
+    // Verificar se existe registro DNS para checkout
     let checkoutDNSCreated = false
+    let checkoutSubdomain = null
     if (zone.status === 'active') {
       try {
         // Verificar se já existe registro DNS para checkout
         const existingRecords = await listDNSRecords(cloudflareConfig, finalZoneId, 'A', 'checkout')
         
-        if (existingRecords.length === 0) {
-          console.log(`[info] Criando registro DNS tipo A para checkout.${zone.name} -> ${CHECKOUT_VPS_IP}`)
-          
-          const dnsRecord = await createDNSRecord(cloudflareConfig, finalZoneId, {
-            type: 'A',
-            name: 'checkout',
-            content: CHECKOUT_VPS_IP,
-            ttl: 1, // Automático
-            proxied: true // Ativar proxy (orange cloud) para SSL automático
-          })
-          
+        if (existingRecords.length > 0) {
           checkoutDNSCreated = true
-          console.log(`[success] Registro DNS criado com sucesso: checkout.${zone.name} -> ${CHECKOUT_VPS_IP}`)
+          checkoutSubdomain = {
+            name: `checkout.${zone.name}`,
+            ip: existingRecords[0].content,
+            proxied: existingRecords[0].proxied
+          }
+          console.log(`[info] Registro DNS para checkout.${zone.name} encontrado: ${existingRecords[0].content}`)
         } else {
-          console.log(`[info] Registro DNS para checkout.${zone.name} já existe`)
+          console.log(`[info] Registro DNS para checkout.${zone.name} não encontrado`)
         }
       } catch (error) {
-        console.log('[error] Erro ao criar registro DNS para checkout:', error)
+        console.log('[error] Erro ao verificar registro DNS para checkout:', error)
       }
     }
 
@@ -218,9 +214,10 @@ export async function GET(request: NextRequest) {
       },
       checkout: {
         dns_created: checkoutDNSCreated,
-        subdomain: zone.status === 'active' ? `checkout.${zone.name}` : null,
-        ip: CHECKOUT_VPS_IP,
-        ssl_enabled: zone.status === 'active' // SSL automático com proxy ativado
+        subdomain: checkoutSubdomain ? checkoutSubdomain.name : null,
+        ip: checkoutSubdomain ? checkoutSubdomain.ip : null,
+        proxied: checkoutSubdomain ? checkoutSubdomain.proxied : false,
+        ssl_enabled: checkoutSubdomain ? checkoutSubdomain.proxied : false
       }
     })
 

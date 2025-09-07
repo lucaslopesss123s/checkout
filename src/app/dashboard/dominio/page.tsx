@@ -43,7 +43,18 @@ export default function DominioPage() {
 
   const loadCloudflareZones = async () => {
     try {
-      const response = await fetch('/api/dominios')
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.error('Token não encontrado')
+        return
+      }
+
+      const response = await fetch('/api/dominios', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
       if (response.ok) {
         const domains = await response.json()
         const zones = domains
@@ -61,6 +72,13 @@ export default function DominioPage() {
         setCloudflareZones(zones)
       } else {
         console.error('Erro ao carregar domínios:', response.statusText)
+        if (response.status === 401) {
+          toast({
+            title: 'Erro de autenticação',
+            description: 'Faça login novamente.',
+            variant: 'destructive'
+          })
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar domínios Cloudflare:', error)

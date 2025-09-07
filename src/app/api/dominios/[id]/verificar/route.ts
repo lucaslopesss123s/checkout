@@ -13,6 +13,22 @@ const VALID_SERVER_IPS = [
   '181.41.200.99', // IP da VPS
 ]
 
+// IPs do Cloudflare (quando proxy está ativo)
+const CLOUDFLARE_IPS = [
+  '172.67.132.113',
+  '104.21.4.208',
+  // Adicionar outros IPs do Cloudflare conforme necessário
+]
+
+// Função para verificar se um IP pertence ao Cloudflare
+function isCloudflareIP(ip: string): boolean {
+  return CLOUDFLARE_IPS.includes(ip) || 
+         ip.startsWith('172.67.') || 
+         ip.startsWith('104.21.') ||
+         ip.startsWith('198.41.') ||
+         ip.startsWith('162.158.')
+}
+
 // Função para verificar DNS
 async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
   try {
@@ -54,8 +70,9 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
         if (aRecords && aRecords.length > 0) {
           console.log(`Registros A encontrados: ${aRecords.join(', ')}`)
           
-          // Verificar se algum IP aponta para nosso servidor
+          // Verificar se algum IP aponta para nosso servidor ou Cloudflare (proxy ativo)
           const validIPs = aRecords.filter(ip => VALID_SERVER_IPS.includes(ip))
+          const cloudflareIPs = aRecords.filter(ip => isCloudflareIP(ip))
           
           if (validIPs.length > 0) {
             return {
@@ -65,13 +82,21 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
               erro: null,
               detalhes: `Registro A configurado corretamente: ${fullDomain} → ${validIPs.join(', ')}`
             }
+          } else if (cloudflareIPs.length > 0) {
+            return {
+              verificado: true,
+              tipo: 'A',
+              valor: aRecords.join(', '),
+              erro: null,
+              detalhes: `Registro A configurado com Cloudflare proxy ativo: ${fullDomain} → ${cloudflareIPs.join(', ')} (Cloudflare)`
+            }
           } else {
             return {
               verificado: false,
               tipo: 'A',
               valor: aRecords.join(', '),
-              erro: `Registro A aponta para ${aRecords.join(', ')}, mas deveria apontar para um dos IPs válidos: ${VALID_SERVER_IPS.join(', ')}`,
-              detalhes: 'O registro A existe, mas não aponta para o servidor correto'
+              erro: `Registro A aponta para ${aRecords.join(', ')}, mas deveria apontar para um dos IPs válidos: ${VALID_SERVER_IPS.join(', ')} ou usar Cloudflare proxy`,
+              detalhes: 'O registro A existe, mas não aponta para o servidor correto nem usa Cloudflare proxy'
             }
           }
         }
@@ -122,10 +147,10 @@ async function verificarDNS(dominio: string, subdominio: string = 'checkout') {
 // POST - Verificar DNS de um domínio específico
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     if (!id) {
       return NextResponse.json(
@@ -187,10 +212,10 @@ export async function POST(
 // GET - Obter status de verificação de um domínio
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     if (!id) {
       return NextResponse.json(
