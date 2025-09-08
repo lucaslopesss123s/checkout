@@ -96,6 +96,12 @@ export default function ShopifyCheckoutPage() {
     cardName: ''
   });
 
+  const [cardValidation, setCardValidation] = useState({
+    isValid: false,
+    cardType: '',
+    error: ''
+  });
+
   const [addressLoaded, setAddressLoaded] = useState(false);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -469,8 +475,116 @@ export default function ShopifyCheckoutPage() {
     }
   };
 
+  // Função para aplicar máscara no cartão de crédito
+  const formatCardNumber = (value: string) => {
+    // Remove todos os caracteres não numéricos
+    const cleanValue = value.replace(/\D/g, '');
+    
+    // Detecta o tipo de cartão baseado nos primeiros dígitos
+    const cardType = detectCardType(cleanValue);
+    
+    // Aplica máscara baseada no tipo de cartão
+    if (cardType === 'amex') {
+      // American Express: XXXX XXXXXX XXXXX (15 dígitos)
+      return cleanValue.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3').substring(0, 17);
+    } else {
+      // Visa, Mastercard, etc: XXXX XXXX XXXX XXXX (16 dígitos)
+      return cleanValue.replace(/(\d{4})(\d{4})(\d{4})(\d{4})/, '$1 $2 $3 $4').substring(0, 19);
+    }
+  };
+
+  // Função para detectar tipo de cartão
+  const detectCardType = (cardNumber: string) => {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    
+    if (cleanNumber.match(/^3[47]/)) {
+      return 'amex'; // American Express
+    } else if (cleanNumber.match(/^4/)) {
+      return 'visa'; // Visa
+    } else if (cleanNumber.match(/^5[1-5]/) || cleanNumber.match(/^2[2-7]/)) {
+      return 'mastercard'; // Mastercard
+    } else if (cleanNumber.match(/^6(?:011|5)/)) {
+      return 'discover'; // Discover
+    } else if (cleanNumber.match(/^3[0-9]/)) {
+      return 'diners'; // Diners Club
+    }
+    return 'unknown';
+  };
+
+  // Algoritmo de validação Luhn
+  const validateLuhn = (cardNumber: string) => {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    
+    if (cleanNumber.length < 13 || cleanNumber.length > 19) {
+      return false;
+    }
+    
+    let sum = 0;
+    let isEven = false;
+    
+    // Percorre o número do cartão de trás para frente
+    for (let i = cleanNumber.length - 1; i >= 0; i--) {
+      let digit = parseInt(cleanNumber.charAt(i));
+      
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) {
+          digit -= 9;
+        }
+      }
+      
+      sum += digit;
+      isEven = !isEven;
+    }
+    
+    return sum % 10 === 0;
+  };
+
+  // Função para formatar data de expiração
+  const formatExpiryDate = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    if (cleanValue.length >= 2) {
+      return cleanValue.substring(0, 2) + '/' + cleanValue.substring(2, 4);
+    }
+    return cleanValue;
+  };
+
+  // Função para formatar CVV
+  const formatCVV = (value: string, cardType: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    const maxLength = cardType === 'amex' ? 4 : 3;
+    return cleanValue.substring(0, maxLength);
+  };
+
   const handlePaymentChange = (field: string, value: string) => {
-    const updatedData = { ...paymentData, [field]: value };
+    let formattedValue = value;
+    let validation = { ...cardValidation };
+    
+    if (field === 'cardNumber') {
+      formattedValue = formatCardNumber(value);
+      const cleanNumber = formattedValue.replace(/\D/g, '');
+      const cardType = detectCardType(cleanNumber);
+      const isValid = validateLuhn(cleanNumber);
+      
+      // Verifica se o cartão tem o número correto de dígitos
+      const expectedLength = cardType === 'amex' ? 15 : 16;
+      const isComplete = cleanNumber.length === expectedLength;
+      
+      validation = {
+        isValid: isValid && isComplete,
+        cardType: cardType,
+        error: !isValid && cleanNumber.length >= 13 ? 'Número de cartão inválido' : 
+               !isComplete && cleanNumber.length >= 13 ? `Cartão deve ter ${expectedLength} dígitos` : ''
+      };
+      
+      setCardValidation(validation);
+    } else if (field === 'expiryDate') {
+      formattedValue = formatExpiryDate(value);
+    } else if (field === 'cvv') {
+      formattedValue = formatCVV(value, cardValidation.cardType);
+    }
+    
+    const updatedData = { ...paymentData, [field]: formattedValue };
     setPaymentData(updatedData);
     
     // Se selecionou método de pagamento, atualizar etapa
@@ -534,6 +648,29 @@ export default function ShopifyCheckoutPage() {
     if (!checkoutData) {
       setError('Dados do checkout não encontrados');
       return;
+    }
+
+    // Validação específica para pagamento com cartão
+    if (paymentData.method === 'card') {
+      if (!cardValidation.isValid) {
+        setError('Por favor, insira um número de cartão válido antes de finalizar a compra.');
+        return;
+      }
+      
+      if (!paymentData.cardName.trim()) {
+        setError('Por favor, insira o nome como está no cartão.');
+        return;
+      }
+      
+      if (!paymentData.expiryDate || paymentData.expiryDate.length < 5) {
+        setError('Por favor, insira uma data de validade válida (MM/AA).');
+        return;
+      }
+      
+      if (!paymentData.cvv || paymentData.cvv.length < 3) {
+        setError('Por favor, insira um CVV válido.');
+        return;
+      }
     }
 
     try {
@@ -1048,15 +1185,42 @@ export default function ShopifyCheckoutPage() {
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor="cardNumber" className="text-sm font-medium text-gray-700">Número do cartão</Label>
-                            <Input
-                              id="cardNumber"
-                              type="text"
-                              placeholder="1234 5678 9012 3456"
-                              value={paymentData.cardNumber}
-                              onChange={(e) => handlePaymentChange('cardNumber', e.target.value)}
-                              className="w-full"
-                              required
-                            />
+                            <div className="relative">
+                              <Input
+                                id="cardNumber"
+                                type="text"
+                                placeholder={cardValidation.cardType === 'amex' ? '1234 567890 12345' : '1234 5678 9012 3456'}
+                                value={paymentData.cardNumber}
+                                onChange={(e) => handlePaymentChange('cardNumber', e.target.value)}
+                                className={`w-full pr-12 ${
+                                  cardValidation.error ? 'border-red-500 focus:border-red-500' : 
+                                  cardValidation.isValid ? 'border-green-500 focus:border-green-500' : ''
+                                }`}
+                                required
+                              />
+                              {/* Ícone do tipo de cartão */}
+                              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                {cardValidation.cardType === 'visa' && (
+                                  <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center font-bold">VISA</div>
+                                )}
+                                {cardValidation.cardType === 'mastercard' && (
+                                  <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center font-bold">MC</div>
+                                )}
+                                {cardValidation.cardType === 'amex' && (
+                                  <div className="w-8 h-5 bg-blue-800 rounded text-white text-xs flex items-center justify-center font-bold">AMEX</div>
+                                )}
+                                {cardValidation.isValid && (
+                                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {cardValidation.error && (
+                              <p className="text-sm text-red-600 mt-1">{cardValidation.error}</p>
+                            )}
                           </div>
                           
                           <div className="space-y-2">
@@ -1091,12 +1255,16 @@ export default function ShopifyCheckoutPage() {
                               <Input
                                 id="cvv"
                                 type="text"
-                                placeholder="123"
+                                placeholder={cardValidation.cardType === 'amex' ? '1234' : '123'}
                                 value={paymentData.cvv}
                                 onChange={(e) => handlePaymentChange('cvv', e.target.value)}
                                 className="w-full"
+                                maxLength={cardValidation.cardType === 'amex' ? 4 : 3}
                                 required
                               />
+                              <p className="text-xs text-gray-500">
+                                {cardValidation.cardType === 'amex' ? '4 dígitos no verso do cartão' : '3 dígitos no verso do cartão'}
+                              </p>
                             </div>
                           </div>
                         </div>
