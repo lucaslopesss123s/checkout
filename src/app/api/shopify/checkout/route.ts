@@ -125,12 +125,29 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString()
     }
 
+    // Buscar domínio personalizado da loja
+    const dominio = await prisma.dominios.findFirst({
+      where: {
+        id_loja: lojaShopify.id_loja,
+        status: {
+          in: ['verified', 'active']
+        },
+        ativo: true
+      }
+    })
+
+    // Se não houver domínio personalizado configurado, usar domínio padrão
+    let baseUrl = 'https://checkout.pesquisaencomenda.online'
+    if (dominio) {
+      baseUrl = `https://checkout.${dominio.dominio}`
+    }
+
     // Armazenar sessão temporariamente (você pode usar Redis ou banco de dados)
     // Por enquanto, vamos codificar em base64 para passar na URL
     const sessionData = Buffer.from(JSON.stringify(checkoutSession)).toString('base64')
 
-    // Gerar URL do checkout personalizado
-    const checkoutUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://checkout.pesquisaencomenda.online'}/shopify-checkout?session=${sessionData}`
+    // Gerar URL do checkout personalizado usando o domínio correto
+    const checkoutUrl = `${baseUrl}/shopify-checkout?session=${sessionData}`
 
     const response = NextResponse.json({
       success: true,
