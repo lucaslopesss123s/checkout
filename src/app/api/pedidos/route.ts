@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     const pedido = await prisma.pedidos.create({
       data: {
         id_loja: id_loja,
+        id_carrinho: carrinho_id ? parseInt(carrinho_id) : null,
         nome,
         email,
         telefone,
@@ -40,18 +41,20 @@ export async function POST(request: NextRequest) {
         estado,
         itens: JSON.stringify(itens),
         valor_total: parseFloat(valor_total),
-        metodo_pagamento,
-        status: 'finalizado',
-        finalizado_em: new Date(),
+        metodo_pagamento: metodo_pagamento === 'card' ? 'card' : 'pix',
+        status: 'pending',
         numero_pedido: `PED-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
       }
     });
 
-    // Remover o carrinho abandonado se fornecido
+    // Atualizar status do carrinho para finalizado se fornecido
     if (carrinho_id) {
-      await prisma.carrinho.delete({
+      await prisma.carrinho.update({
         where: {
-          id: carrinho_id
+          id: parseInt(carrinho_id)
+        },
+        data: {
+          status: 'finalizado'
         }
       });
     }

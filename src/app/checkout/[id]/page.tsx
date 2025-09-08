@@ -144,7 +144,7 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
         id_loja: 1, // ID da loja padrão
         nome: customerData.name,
         email: customerData.email,
-        telefone: customerData.phone,
+        telefone: customerData.telephone,
         cep: addressData.zipCode,
         endereco: addressData.street,
         numero: addressData.number,
@@ -160,8 +160,8 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
           }
         ],
         valor_total: 167.90,
-        metodo_pagamento: paymentData.method === 'card' ? 'Cartão de Crédito' : 'PIX',
-        carrinho_id: params.id // ID do carrinho para remover dos abandonados
+        metodo_pagamento: paymentData.method,
+        carrinho_id: id // ID do carrinho
       };
 
       // Criar o pedido

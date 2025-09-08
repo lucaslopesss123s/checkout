@@ -21,7 +21,8 @@ import {
   ShoppingBag,
   Globe,
   Truck,
-  Settings
+  Settings,
+  Mail
 } from "lucide-react"
 import {
     Collapsible,
@@ -57,6 +58,7 @@ const navItems = [
     label: "Marketing",
     icon: Megaphone,
     subItems: [
+      { href: "/dashboard/marketing/emails", label: "Emails", icon: Mail },
       { href: "/dashboard/marketing/pixels", label: "Pixels", icon: Target },
       { href: "/dashboard/marketing/order-bump", label: "Order Bump", icon: ArrowUp },
       { href: "/dashboard/marketing/upsell", label: "Upsell", icon: ArrowDown },

@@ -101,6 +101,7 @@ model Loja_Shopify {
 model Pedidos {
   id                String   @id @default(uuid())
   id_loja           String
+  id_carrinho       String?  // Referência ao carrinho que originou o pedido
   // Dados do cliente
   nome              String?
   email             String?
@@ -117,8 +118,8 @@ model Pedidos {
   itens             Json     // Array de objetos com produtos e quantidades
   valor_total       Float?
   valor_frete       Float?
-  metodo_pagamento  String?  // cartao_credito, pix, boleto
-  status            String   @default("realizado") // realizado, processando, enviado, entregue, cancelado
+  metodo_pagamento  String?  // card, pix, boleto
+  status            String   @default("pending") // pending, realizado, processando, enviado, entregue, cancelado
   session_id        String?  // Para identificar sessão única
   ip_cliente        String?
   user_agent        String?
@@ -131,6 +132,7 @@ model Pedidos {
   updatedAt         DateTime @updatedAt
 
   @@index([id_loja])
+  @@index([id_carrinho])
   @@index([status])
   @@index([session_id])
   @@index([email])
@@ -296,6 +298,7 @@ model Carrinho {
   valor_total       Float?
   valor_frete       Float?
   metodo_pagamento  String?
+  status            String   @default("abandonado") // abandonado, finalizado
   session_id        String?  // Para identificar sessão única
   ip_cliente        String?
   user_agent        String?
@@ -308,6 +311,7 @@ model Carrinho {
   @@index([id_loja])
   @@index([session_id])
   @@index([email])
+  @@index([status])
 }
 
 // 17 - Dominios (domínios personalizados)
@@ -504,4 +508,53 @@ model Cloudflare_dns_records {
   @@index([type])
   @@index([name])
   @@index([proxied])
+}
+
+// 24 - Marketing (campanhas de email marketing)
+model Marketing {
+  id        String   @id @default(uuid())
+  id_loja   String   // ID da loja que possui a campanha
+  tipo      String   @default("email") // Tipo da campanha (email, sms, etc.)
+  evento    String   // Evento que dispara a campanha (abandono_carrinho, pos_compra, etc.)
+  tempo     Int      // Tempo em minutos após o evento para enviar
+  mensagem  String   @db.Text // Conteúdo da mensagem/template do email
+  assunto   String?  // Assunto do email
+  status    String   @default("ativo") // ativo, inativo
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento com eventos
+  eventos   MarketingEvents[]
+
+  @@index([id_loja])
+  @@index([evento])
+  @@index([status])
+}
+
+// 25 - MarketingEvents (eventos de marketing agendados)
+model MarketingEvents {
+  id             String   @id @default(uuid())
+  id_loja        String
+  template_id    String
+  session_id     String
+  evento         String   // 'abandono_carrinho', etc
+  email_cliente  String?
+  nome_cliente   String?
+  dados_evento   Json?    // dados específicos do evento (itens, valores, etc)
+  agendado_para  DateTime // quando o email deve ser enviado
+  enviado_em     DateTime?
+  status         String   @default("pendente") // 'pendente', 'enviado', 'erro', 'cancelado'
+  erro_envio     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relacionamento com template
+  template       Marketing @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([id_loja])
+  @@index([session_id])
+  @@index([evento])
+  @@index([status])
+  @@index([agendado_para])
+  @@index([template_id])
 }

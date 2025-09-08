@@ -76,7 +76,10 @@ export async function GET(request: NextRequest) {
                   timestamp: new Date().toISOString()
                 })
 
-                controller.enqueue(`data: ${data}\n\n`)
+                // Verificação adicional antes de enviar
+                if (!isClosed && controller.desiredSize !== null) {
+                  controller.enqueue(`data: ${data}\n\n`)
+                }
               } catch (enqueueError) {
                 console.error('Erro ao enviar dados via SSE:', enqueueError)
                 isClosed = true
@@ -96,7 +99,10 @@ export async function GET(request: NextRequest) {
                   message: 'Erro ao buscar dados',
                   timestamp: new Date().toISOString()
                 })
-                controller.enqueue(`data: ${errorData}\n\n`)
+                // Verificação adicional antes de enviar erro
+                if (!isClosed && controller.desiredSize !== null) {
+                  controller.enqueue(`data: ${errorData}\n\n`)
+                }
               } catch (controllerError) {
                 console.error('Controller já foi fechado:', controllerError)
                 isClosed = true

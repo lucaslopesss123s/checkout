@@ -62,6 +62,41 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Criar automaticamente o template de carrinho abandonado para a nova loja
+    try {
+      await prisma.marketing.create({
+        data: {
+          id_loja: lojaAdmin.id,
+          tipo: 'email',
+          evento: 'abandono_carrinho',
+          tempo: 60, // 1 hora após abandono
+          assunto: 'Você esqueceu algo no seu carrinho! 🛒',
+          mensagem: `Olá \{\{nome_cliente\}\},
+
+Notamos que você deixou alguns itens incríveis no seu carrinho em \{\{nome_loja\}\}.
+
+Não perca essa oportunidade! Seus produtos estão esperando por você:
+
+\{\{lista_produtos\}\}
+
+Total: \{\{valor_total\}\}
+
+Finalize sua compra agora e garante esses produtos:
+\{\{link_checkout\}\}
+
+Se tiver alguma dúvida, estamos aqui para ajudar!
+
+Atenciosamente,
+Equipe \{\{nome_loja\}\}`,
+          status: 'ativo'
+        }
+      });
+      console.log(`Template de carrinho abandonado criado para loja ${lojaAdmin.id}`);
+    } catch (emailError) {
+      console.error('Erro ao criar template de email padrão:', emailError);
+      // Não falhar a criação da loja se houver erro no template
+    }
+
     return NextResponse.json(lojaAdmin, { status: 201 });
   } catch (error) {
     console.error('Erro ao criar loja admin:', error);
