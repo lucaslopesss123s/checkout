@@ -103,10 +103,15 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
     // Remove todos os caracteres não numéricos
     const cleanCep = cep.replace(/\D/g, '');
     
-    // Formata o CEP com hífen se tiver 8 dígitos
+    // Formata o CEP com hífen se tiver mais de 5 dígitos
     let formattedCep = cleanCep;
     if (cleanCep.length > 5) {
-      formattedCep = cleanCep.slice(0, 5) + '-' + cleanCep.slice(5, 8);
+      formattedCep = cleanCep.slice(0, 5) + '-' + cleanCep.slice(5);
+    }
+    
+    // Limita a 8 dígitos no total
+    if (cleanCep.length > 8) {
+      return;
     }
     
     handleAddressChange('zipCode', formattedCep);

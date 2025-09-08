@@ -311,11 +311,26 @@ function ShopifyCheckoutContent() {
   }
 
   const handleCepChange = async (cep: string) => {
-    setEnderecoData(prev => ({ ...prev, cep }))
+    // Remove todos os caracteres não numéricos
+    const cleanCep = cep.replace(/\D/g, '');
     
-    if (cep.length === 8) {
+    // Limita a 8 dígitos no total
+    if (cleanCep.length > 8) {
+      return;
+    }
+    
+    // Formata o CEP com hífen se tiver mais de 5 dígitos
+    let formattedCep = cleanCep;
+    if (cleanCep.length > 5) {
+      formattedCep = cleanCep.slice(0, 5) + '-' + cleanCep.slice(5);
+    }
+    
+    setEnderecoData(prev => ({ ...prev, cep: formattedCep }))
+    
+    // Faz a busca quando tiver 8 dígitos
+    if (cleanCep.length === 8) {
       try {
-        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`)
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
         const data = await response.json()
         
         if (!data.erro) {
@@ -484,7 +499,7 @@ function ShopifyCheckoutContent() {
                         value={enderecoData.cep}
                         onChange={(e) => handleCepChange(e.target.value)}
                         placeholder="00000-000"
-                        maxLength={8}
+                        maxLength={9}
                         required
                       />
                     </div>

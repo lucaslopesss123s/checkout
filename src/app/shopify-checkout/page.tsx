@@ -429,9 +429,14 @@ export default function ShopifyCheckoutPage() {
   const handleCepChange = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, '');
     
+    // Limita a 8 dígitos no total
+    if (cleanCep.length > 8) {
+      return;
+    }
+    
     let formattedCep = cleanCep;
     if (cleanCep.length > 5) {
-      formattedCep = cleanCep.slice(0, 5) + '-' + cleanCep.slice(5, 8);
+      formattedCep = cleanCep.slice(0, 5) + '-' + cleanCep.slice(5);
     }
     
     handleAddressChange('zipCode', formattedCep);
