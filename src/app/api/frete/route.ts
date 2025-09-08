@@ -19,11 +19,22 @@ export async function GET(request: NextRequest) {
 
     const opcoesFrete = await prisma.frete.findMany({
       where: {
-        id_loja: id_loja,
+        ID_LOJA: parseInt(id_loja),
+        ativo: true
+      },
+      select: {
+        id: true,
+        nome: true,
+        preco: true,
+        prazo_minimo: true,
+        prazo_maximo: true,
+        frete_gratis_valor_minimo: true,
+        frete_gratis_ativo: true,
+        ativo: true
       },
       orderBy: {
-        createdAt: 'desc',
-      },
+        preco: 'asc'
+      }
     });
 
     return NextResponse.json(opcoesFrete);
