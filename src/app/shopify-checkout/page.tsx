@@ -36,6 +36,17 @@ interface CheckoutSettings {
   barra_texto?: string;
 }
 
+interface FreteOption {
+  id: number;
+  nome: string;
+  preco: number;
+  prazo_minimo: number | null;
+  prazo_maximo: number | null;
+  valor_minimo_gratis: number | null;
+  frete_gratis_ativo: boolean;
+  ativo: boolean;
+}
+
 export default function ShopifyCheckoutPage() {
   const [checkoutData, setCheckoutData] = useState<ShopifyCheckoutData | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
@@ -90,6 +101,11 @@ export default function ShopifyCheckoutPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [lojaId, setLojaId] = useState<string | null>(null);
   const [primeiraEtapaCompleta, setPrimeiraEtapaCompleta] = useState(false);
+  
+  // Estados para frete
+  const [freteOptions, setFreteOptions] = useState<FreteOption[]>([]);
+  const [selectedFrete, setSelectedFrete] = useState<FreteOption | null>(null);
+  const [freteLoading, setFreteLoading] = useState(false);
 
   // Função para carregar configurações de checkout
   const loadCheckoutSettings = async (storeDomain: string) => {
@@ -118,6 +134,50 @@ export default function ShopifyCheckoutPage() {
     } catch (error) {
       console.error('Erro ao carregar configurações de checkout:', error);
     }
+  };
+
+  // Função para buscar opções de frete
+  const fetchFreteOptions = async (lojaId: string) => {
+    setFreteLoading(true);
+    try {
+      const response = await fetch(`/api/frete?id_loja=${lojaId}`);
+      if (response.ok) {
+        const options = await response.json();
+        setFreteOptions(options);
+        // Selecionar automaticamente o primeiro frete (mais barato)
+        if (options.length > 0) {
+          setSelectedFrete(options[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar opções de frete:', error);
+    } finally {
+      setFreteLoading(false);
+    }
+  };
+
+  // Funções auxiliares para frete
+  const isFreteGratis = (frete: FreteOption, totalPedido: number): boolean => {
+    return frete.frete_gratis_ativo && 
+           frete.valor_minimo_gratis !== null && 
+           totalPedido >= frete.valor_minimo_gratis;
+  };
+
+  const getFreteValue = (frete: FreteOption, totalPedido: number): number => {
+    return isFreteGratis(frete, totalPedido) ? 0 : frete.preco;
+  };
+
+  const formatPrazoEntrega = (prazoMinimo: number | null, prazoMaximo: number | null): string => {
+    if (!prazoMinimo && !prazoMaximo) return 'Prazo não informado';
+    if (prazoMinimo && prazoMaximo) {
+      if (prazoMinimo === prazoMaximo) {
+        return `${prazoMinimo} ${prazoMinimo === 1 ? 'dia' : 'dias'}`;
+      }
+      return `de ${prazoMinimo} até ${prazoMaximo} dias`;
+    }
+    if (prazoMinimo) return `a partir de ${prazoMinimo} ${prazoMinimo === 1 ? 'dia' : 'dias'}`;
+    if (prazoMaximo) return `até ${prazoMaximo} ${prazoMaximo === 1 ? 'dia' : 'dias'}`;
+    return 'Prazo não informado';
   };
 
   useEffect(() => {
@@ -166,6 +226,8 @@ export default function ShopifyCheckoutPage() {
         setSessionId(sessionData);
         if (decodedData.loja_id) {
           setLojaId(decodedData.loja_id);
+          // Buscar opções de frete para a loja
+          fetchFreteOptions(decodedData.loja_id);
         }
         
         // Preencher dados do cliente se disponíveis
@@ -204,10 +266,13 @@ export default function ShopifyCheckoutPage() {
         
         // Gerar sessionId e lojaId para teste
         const testSessionId = 'test-session-' + Date.now();
-        const testLojaId = '5d38b556-cb47-4493-8363-4b655b416df9'; // ID da loja de teste
+        const testLojaId = '7453e5c4-bbb1-4e16-87da-0f031f7e3d56'; // ID da loja específica
         
         setSessionId(testSessionId);
         setLojaId(testLojaId);
+        
+        // Buscar opções de frete para a loja de teste
+        fetchFreteOptions(testLojaId);
         
         console.log('Modo teste: sessionId e lojaId definidos', { testSessionId, testLojaId });
         
@@ -815,29 +880,63 @@ export default function ShopifyCheckoutPage() {
                       {/* Seção de Frete */}
                       <div className="border-t pt-4">
                         <p className="text-sm font-medium text-gray-700 mb-3">Escolha o melhor frete para você</p>
-                        <div className="space-y-2">
-                          <div className="border border-blue-300 rounded-lg p-4 bg-blue-50 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <input 
-                                  type="radio" 
-                                  id="frete-gratis" 
-                                  name="shipping" 
-                                  value="gratis" 
-                                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" 
-                                  defaultChecked
-                                />
-                                <div>
-                                  <label htmlFor="frete-gratis" className="font-medium text-gray-900 cursor-pointer">
-                                    Frete gratis
-                                    <span className="ml-2 text-green-600 font-semibold">Grátis</span>
-                                  </label>
-                                  <p className="text-sm text-gray-600 mt-1">de 15 até 30 dias</p>
-                                </div>
-                              </div>
-                            </div>
+                        {freteLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <span className="ml-2 text-sm text-gray-600">Carregando opções de frete...</span>
                           </div>
-                        </div>
+                        ) : freteOptions.length > 0 ? (
+                          <div className="space-y-2">
+                            {freteOptions.map((frete, index) => {
+                              const totalPedido = checkoutData?.total_price || 0;
+                              const valorFrete = getFreteValue(frete, totalPedido);
+                              const isGratis = isFreteGratis(frete, totalPedido);
+                              const prazoFormatado = formatPrazoEntrega(frete.prazo_minimo, frete.prazo_maximo);
+                              
+                              return (
+                                <div 
+                                  key={frete.id} 
+                                  className={`border rounded-lg p-4 shadow-sm ${
+                                    selectedFrete?.id === frete.id 
+                                      ? 'border-blue-300 bg-blue-50' 
+                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                      <input 
+                                        type="radio" 
+                                        id={`frete-${frete.id}`}
+                                        name="shipping" 
+                                        value={frete.id.toString()}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" 
+                                        checked={selectedFrete?.id === frete.id}
+                                        onChange={() => setSelectedFrete(frete)}
+                                      />
+                                      <div>
+                                        <label htmlFor={`frete-${frete.id}`} className="font-medium text-gray-900 cursor-pointer">
+                                          {frete.nome}
+                                          <span className={`ml-2 font-semibold ${
+                                            valorFrete === 0 ? 'text-green-600' : 'text-gray-900'
+                                          }`}>
+                                            {valorFrete === 0 ? 'Grátis' : `R$ ${valorFrete.toFixed(2).replace('.', ',')}`}
+                                          </span>
+                                        </label>
+                                        <p className="text-sm text-gray-600 mt-1">{prazoFormatado}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <p className="text-sm text-gray-600 text-center">
+                              Nenhuma opção de frete disponível para esta loja.
+                            </p>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-500 mt-2">
                           A previsão de entrega pode variar de acordo com a região e facilidade de acesso ao seu endereço
                         </p>
@@ -1100,7 +1199,14 @@ export default function ShopifyCheckoutPage() {
                     
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Frete</span>
-                      <span className="text-gray-800">Grátis</span>
+                      <span className="text-gray-800">
+                        {selectedFrete ? (
+                          (() => {
+                            const valorFrete = getFreteValue(selectedFrete, checkoutData.total_price);
+                            return valorFrete === 0 ? 'Grátis' : `R$ ${valorFrete.toFixed(2).replace('.', ',')}`;
+                          })()
+                        ) : 'Grátis'}
+                      </span>
                     </div>
                   </div>
 
@@ -1109,7 +1215,11 @@ export default function ShopifyCheckoutPage() {
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
                     <span>
-                      {checkoutData.currency === 'BRL' ? 'R$' : checkoutData.currency} {checkoutData.total_price.toFixed(2)}
+                      {(() => {
+                        const valorFrete = selectedFrete ? getFreteValue(selectedFrete, checkoutData.total_price) : 0;
+                        const totalComFrete = checkoutData.total_price + valorFrete;
+                        return `${checkoutData.currency === 'BRL' ? 'R$' : checkoutData.currency} ${totalComFrete.toFixed(2).replace('.', ',')}`;
+                      })()}
                     </span>
                   </div>
 
