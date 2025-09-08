@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
+import { authenticateUser } from '@/lib/auth'
 
 const prisma = new PrismaClient()
 
 // GET - Listar todos os templates de email da loja
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const user = await authenticateUser(request)
+    if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    // Buscar o id_loja do usuário
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id_loja: true }
-    })
 
     if (!user?.id_loja) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
