@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const opcoesFrete = await prisma.frete.findMany({
       where: {
-        ID_LOJA: parseInt(id_loja),
+        id_loja: id_loja,
         ativo: true
       },
       select: {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         preco: true,
         prazo_minimo: true,
         prazo_maximo: true,
-        frete_gratis_valor_minimo: true,
+        valor_minimo_gratis: true,
         frete_gratis_ativo: true,
         ativo: true
       },

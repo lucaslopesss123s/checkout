@@ -18,7 +18,7 @@ interface FreteOption {
   preco: number
   prazo_minimo: number | null
   prazo_maximo: number | null
-  frete_gratis_valor_minimo: number | null
+  valor_minimo_gratis: number | null
   frete_gratis_ativo: boolean
   ativo: boolean
 }
@@ -174,8 +174,8 @@ function ShopifyCheckoutContent() {
   // Funções auxiliares para frete
   const isFreteGratis = (frete: FreteOption, totalPedido: number): boolean => {
     return frete.frete_gratis_ativo && 
-           frete.frete_gratis_valor_minimo !== null && 
-           totalPedido >= frete.frete_gratis_valor_minimo
+           frete.valor_minimo_gratis !== null && 
+           totalPedido >= frete.valor_minimo_gratis
   }
 
   const getFreteValue = (frete: FreteOption, totalPedido: number): number => {
@@ -591,14 +591,16 @@ function ShopifyCheckoutContent() {
                                 onChange={() => setSelectedFrete(frete)}
                                 className="text-blue-600"
                               />
-                              <span className="font-medium">{frete.nome}</span>
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              Prazo: {formatPrazoEntrega(frete)}
+                              <div>
+                                <span className="font-medium">{frete.nome}</span>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  de {frete.prazo_minimo} até {frete.prazo_maximo} dias
+                                </div>
+                              </div>
                             </div>
                             {isFreteGratis(frete, session.total) && (
                               <div className="text-xs text-green-600 mt-1">
-                                Frete grátis para compras acima de {formatCurrency(frete.frete_gratis_valor_minimo || 0)}
+                                Frete grátis para compras acima de {formatCurrency(frete.valor_minimo_gratis || 0)}
                               </div>
                             )}
                           </div>
