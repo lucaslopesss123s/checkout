@@ -499,7 +499,6 @@ function ShopifyCheckoutContent() {
                         value={enderecoData.cep}
                         onChange={(e) => handleCepChange(e.target.value)}
                         placeholder="00000-000"
-                        maxLength={9}
                         required
                       />
                     </div>
