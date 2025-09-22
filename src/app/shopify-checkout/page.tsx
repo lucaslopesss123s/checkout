@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCheckoutTracking } from '@/hooks/use-checkout-tracking';
+import { OrderBumpComponent } from '@/components/checkout/order-bump';
 
 interface Product {
   id: string;
@@ -1291,6 +1292,11 @@ export default function ShopifyCheckoutPage() {
                         <p className="text-gray-600 mb-4">Após finalizar a compra, você receberá o código PIX para pagamento.</p>
                       </div>
                     )}
+
+                    {/* Order Bump Component */}
+                    <div className="mt-6 mb-4">
+                      <OrderBumpComponent checkoutId={sessionId} lojaId={lojaId} />
+                    </div>
 
                     <Button 
                        type="submit" 
