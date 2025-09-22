@@ -14,11 +14,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { domain } = await request.json()
+    const { domain, storeId } = await request.json()
 
     if (!domain) {
       return NextResponse.json(
         { error: 'Domínio é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!storeId) {
+      return NextResponse.json(
+        { error: 'ID da loja é obrigatório' },
         { status: 400 }
       )
     }
@@ -83,24 +90,39 @@ export async function POST(request: NextRequest) {
     const zone = response.result
     console.log(`[info] Zona criada com sucesso: ${zone.id}`)
 
-    // Buscar a loja do usuário
+    // Verificar se a loja existe e pertence ao usuário
     const userStore = await prisma.loja_admin.findFirst({
       where: {
+        id: storeId,
         user_id: user.id
       }
     })
 
     if (!userStore) {
       return NextResponse.json(
-        { error: 'Loja não encontrada para o usuário' },
+        { error: 'Loja não encontrada ou não pertence ao usuário' },
         { status: 404 }
+      )
+    }
+
+    // Verificar se a loja já possui um domínio (limite de 1 domínio por loja)
+    const existingDomainForStore = await prisma.dominios.findFirst({
+      where: {
+        id_loja: storeId
+      }
+    })
+
+    if (existingDomainForStore) {
+      return NextResponse.json(
+        { error: 'Esta loja já possui um domínio cadastrado. Cada loja pode ter apenas 1 domínio personalizado.' },
+        { status: 409 }
       )
     }
 
     // Salvar no banco de dados
     const savedDomain = await prisma.dominios.create({
       data: {
-        id_loja: userStore.id, // ID correto da loja
+        id_loja: storeId, // Usar o ID da loja enviado do frontend
         dominio: domain,
         status: 'pending',
         dns_verificado: false,

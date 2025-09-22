@@ -126,6 +126,12 @@ model Pedidos {
   // Dados específicos do pedido
   numero_pedido     String?  // Número único do pedido
   observacoes       String?  // Observações do cliente
+  // Dados UTM para análise de marketing
+  utm_source        String?  // Origem do tráfego (ex: google, facebook)
+  utm_medium        String?  // Meio de marketing (ex: cpc, email, social)
+  utm_campaign      String?  // Nome da campanha
+  utm_term          String?  // Termo da palavra-chave
+  utm_content       String?  // Conteúdo do anúncio
   // Timestamps
   finalizado_em     DateTime @default(now()) // Quando o pedido foi finalizado
   createdAt         DateTime @default(now())
@@ -160,13 +166,22 @@ model Loja_Wordpress {
 
 // 7 - Orderbump
 model Orderbump {
-  id        String   @id @default(uuid())
-  titulo    String
-  descricao String?
-  valor     Float
-  ativo     Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(uuid())
+  id_loja           String   // ID da loja que possui o order bump
+  nome              String   // Nome do order bump
+  todos_produtos    Boolean  @default(false) // Se aplica a todos os produtos ou específicos
+  produtos_aplicados Json?   // Array de IDs de produtos aos quais o order bump se aplica
+  produto_id        String   // ID do produto que será oferecido no order bump
+  tipo_desconto     String   // Tipo de desconto: "porcentagem" ou "valor"
+  valor_desconto    Float    // Valor do desconto (em % ou R$)
+  preco_final       Float    // Preço final após aplicar o desconto
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([id_loja])
+  @@index([produto_id])
+  @@index([ativo])
 }
 
 // 8 - Upssel
@@ -283,6 +298,8 @@ model Carrinho {
   id_loja           String
   // Dados do cliente
   nome              String?
+  // Relacionamentos
+  itensCarrinho     ItemCarrinho[]
   email             String?
   telefone          String?
   cpf               String?
@@ -302,6 +319,12 @@ model Carrinho {
   session_id        String?  // Para identificar sessão única
   ip_cliente        String?
   user_agent        String?
+  // Dados UTM para análise de marketing
+  utm_source        String?  // Origem do tráfego (ex: google, facebook)
+  utm_medium        String?  // Meio de marketing (ex: cpc, email, social)
+  utm_campaign      String?  // Nome da campanha
+  utm_term          String?  // Termo da palavra-chave
+  utm_content       String?  // Conteúdo do anúncio
   // Timestamps
   primeira_etapa_em DateTime? // Quando completou identificação
   ultima_atividade  DateTime @default(now())
@@ -557,4 +580,23 @@ model MarketingEvents {
   @@index([status])
   @@index([agendado_para])
   @@index([template_id])
+}
+
+// 26 - ItemCarrinho (itens do carrinho)
+model ItemCarrinho {
+  id            String   @id @default(uuid())
+  carrinhoId    String
+  produtoId     String
+  quantidade    Int
+  precoUnitario Float
+  isOrderBump   Boolean  @default(false) // Indica se o item foi adicionado via Order Bump
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relacionamentos
+  carrinho      Carrinho @relation(fields: [carrinhoId], references: [id], onDelete: Cascade)
+
+  @@index([carrinhoId])
+  @@index([produtoId])
+  @@index([isOrderBump])
 }

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCheckoutTracking } from '@/hooks/use-checkout-tracking';
+import { OrderBumpComponent } from '@/components/checkout/order-bump';
 
 interface CheckoutPageProps {
   params: Promise<{ id: string }>;
@@ -638,9 +639,14 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                     </div>
                   )}
 
+                    {/* Order Bump Component */}
+                    <div className="mt-6 mb-4">
+                      <OrderBumpComponent checkoutId={params.id} />
+                    </div>
+
                     <Button 
                       type="submit" 
-                      className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-base"
+                      className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-base"
                     >
                       FINALIZAR COMPRA
                     </Button>

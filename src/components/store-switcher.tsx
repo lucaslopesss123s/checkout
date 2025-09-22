@@ -77,11 +77,18 @@ export function StoreSwitcher() {
   }, [user, loadStores])
 
   React.useEffect(() => {
-    const hasCreatedStore = localStorage.getItem('hasCreatedFirstStore')
-    if (!hasCreatedStore && user) {
-      setShowNewStoreDialog(true)
+    // Verificar se o usuário já possui lojas cadastradas no banco de dados
+    if (user && contextStores.length === 0) {
+      // Aguardar o carregamento das lojas antes de decidir se mostra o popup
+      const checkTimer = setTimeout(() => {
+        if (contextStores.length === 0) {
+          setShowNewStoreDialog(true)
+        }
+      }, 1000) // Aguarda 1 segundo para garantir que as lojas foram carregadas
+      
+      return () => clearTimeout(checkTimer)
     }
-  }, [user])
+  }, [user, contextStores])
 
   const handleCreateStore = async () => {
     if (!newStoreName.trim()) {
@@ -118,7 +125,6 @@ export function StoreSwitcher() {
         
         setShowNewStoreDialog(false)
         setNewStoreName('')
-        localStorage.setItem('hasCreatedFirstStore', 'true')
         
         toast({
           title: 'Sucesso',

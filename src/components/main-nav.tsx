@@ -22,7 +22,8 @@ import {
   Globe,
   Truck,
   Settings,
-  Mail
+  Mail,
+  Home
 } from "lucide-react"
 import {
     Collapsible,
@@ -41,6 +42,7 @@ import { cn } from "@/lib/utils"
 import React from "react"
 
 const navItems = [
+  { href: "/dashboard/inicio", label: "Início", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
     label: "Pedidos",

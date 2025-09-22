@@ -140,7 +140,6 @@ export async function GET(request: NextRequest) {
     // Buscar domínios das lojas do usuário
     const dominios = await prisma.dominios.findMany({
       where: {
-        ativo: true,
         id_loja: {
           in: lojaIds
         }

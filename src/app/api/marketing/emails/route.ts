@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import prisma from '@/lib/prisma'
 import { authenticateUser } from '@/lib/auth'
-
-const prisma = new PrismaClient()
 
 // GET - Listar todos os templates de email da loja
 export async function GET(request: NextRequest) {

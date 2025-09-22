@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareConfig, cloudflareRequest, createDNSRecord, listDNSRecords } from '@/lib/cloudflare-config'
 import prisma from '@/lib/prisma'
 import { authenticateUser } from '@/lib/auth'
+import { maskSensitiveIPsInObject } from '@/lib/ip-mask'
 
 // IP da VPS para apontamento do checkout
 const CHECKOUT_VPS_IP = '181.41.200.99'
@@ -169,24 +170,38 @@ export async function GET(request: NextRequest) {
     // Atualizar status no banco de dados se o domínio existir
     if (domain) {
       try {
-        const updateResult = await prisma.dominios.updateMany({
+        // Primeiro, verificar se o domínio existe na loja especificada
+        const existingDomain = await prisma.dominios.findFirst({
           where: {
             dominio: domain,
             id_loja: storeId || user.id
-          },
-          data: {
-            status: zone.status,
-            ssl_ativo: sslStatus === 'active',
-            dns_verificado: zone.status === 'active',
-            ultima_verificacao: new Date()
           }
         })
+
+        if (existingDomain) {
+          const updateResult = await prisma.dominios.updateMany({
+            where: {
+              dominio: domain,
+              id_loja: storeId || user.id
+            },
+            data: {
+              status: zone.status,
+              ssl_ativo: sslStatus === 'active',
+              dns_verificado: zone.status === 'active',
+              ultima_verificacao: new Date(),
+              cloudflare_zone_id: zone.id // Garantir que o zone_id está atualizado
+            }
+          })
+          console.log(`[info] Domínio ${domain} atualizado na loja ${storeId || user.id}`)
+        } else {
+          console.log(`[warning] Domínio ${domain} não encontrado na loja ${storeId || user.id}`)
+        }
       } catch (error) {
         console.error('Erro ao atualizar domínio no banco:', error)
       }
     }
 
-    return NextResponse.json({
+    return NextResponse.json(maskSensitiveIPsInObject({
       success: true,
       zone: {
         id: zone.id,
@@ -219,7 +234,7 @@ export async function GET(request: NextRequest) {
         proxied: checkoutSubdomain ? checkoutSubdomain.proxied : false,
         ssl_enabled: checkoutSubdomain ? checkoutSubdomain.proxied : false
       }
-    })
+    }))
 
   } catch (error) {
     console.error('[error] Erro ao verificar status do domínio:', error)

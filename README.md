@@ -1,6 +1,6 @@
 # Checkout - Sistema de E-commerce
 
-Este é um projeto NextJS para gerenciamento de lojas online, com suporte a PostgreSQL e Firebase.
+Este é um projeto NextJS para gerenciamento de lojas online, com suporte a PostgreSQL.
 
 ## Tecnologias
 
@@ -8,7 +8,6 @@ Este é um projeto NextJS para gerenciamento de lojas online, com suporte a Post
 - TypeScript
 - Tailwind CSS
 - PostgreSQL (via Prisma ORM)
-- Firebase (autenticação e armazenamento)
 
 ## Configuração
 
@@ -28,11 +27,7 @@ O projeto agora suporta PostgreSQL como banco de dados principal. Para configura
    npx prisma migrate dev --name init
    ```
 
-Para mais detalhes, consulte o arquivo [POSTGRES_SETUP.md](./POSTGRES_SETUP.md).
-
-### Firebase
-
-O projeto também utiliza Firebase para autenticação. As configurações estão no arquivo `.env`.
+Para mais detalhes sobre configuração do banco de dados, consulte a documentação do Prisma.
 
 ## Desenvolvimento
 
@@ -41,10 +36,6 @@ npm run dev
 ```
 
 O servidor de desenvolvimento será iniciado em http://localhost:3000.
-
-## Migração de Dados
-
-Se você estiver migrando do Firebase para o PostgreSQL, o projeto inclui utilitários para facilitar a migração. Consulte o arquivo `src/lib/migrate-firebase-to-postgres.ts` para mais detalhes.
 
 ## APIs Disponíveis
 

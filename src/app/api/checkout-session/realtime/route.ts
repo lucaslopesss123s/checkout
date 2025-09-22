@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import prisma from '@/lib/prisma'
 
 // Simulação de WebSocket usando Server-Sent Events (SSE)
 export async function GET(request: NextRequest) {

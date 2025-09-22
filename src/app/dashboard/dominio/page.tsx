@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Globe, CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink, RefreshCw, Code, Trash2, Cloud, Server, Settings } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useStore } from '@/contexts/store-context'
+import DNSManager from '@/components/dns-manager'
 
 interface CloudflareZone {
   id: string
@@ -32,6 +33,9 @@ export default function DominioPage() {
   const [isCheckingStatus, setIsCheckingStatus] = useState<string | null>(null)
   const [isDeletingDomain, setIsDeletingDomain] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Verificar se já atingiu o limite de 1 domínio por loja
+  const hasReachedDomainLimit = cloudflareZones.length >= 1
 
   useEffect(() => {
     if (selectedStore) {
@@ -57,11 +61,16 @@ export default function DominioPage() {
       
       if (response.ok) {
         const domains = await response.json()
-        const zones = domains
+        // Filtrar domínios pela loja selecionada
+        const filteredDomains = selectedStore 
+          ? domains.filter((d: any) => d.id_loja === selectedStore.id)
+          : []
+        
+        const zones = filteredDomains
           .map((d: any) => ({
             id: d.id,
             domain: d.dominio,
-            status: d.status === 'active' ? 'active' : d.status === 'verified' ? 'active' : d.status === 'failed' ? 'failed' : 'pending',
+            status: d.status, // Usar o status exato do banco de dados
             nameservers: d.configuracao_dns?.nameservers || d.nameservers || [],
             createdAt: d.createdAt,
             lastChecked: d.ultima_verificacao,
@@ -129,7 +138,8 @@ export default function DominioPage() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
-          domain: newDomain
+          domain: newDomain,
+          storeId: selectedStore.id
         })
       })
       
@@ -188,7 +198,7 @@ export default function DominioPage() {
       }
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/cloudflare/domains/status?domain=${zone.domain}&zone_id=${zone.cloudflareZoneId}`, {
+      const response = await fetch(`/api/cloudflare/domains/status?domain=${zone.domain}&zone_id=${zone.cloudflareZoneId}&store_id=${selectedStore?.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -257,6 +267,15 @@ export default function DominioPage() {
 
   const deleteDomain = async (domainId: string) => {
     if (!confirm('Tem certeza que deseja excluir este domínio? Esta ação não pode ser desfeita.')) {
+      return
+    }
+
+    if (!selectedStore) {
+      toast({
+        title: 'Erro',
+        description: 'Nenhuma loja selecionada.',
+        variant: 'destructive'
+      })
       return
     }
 
@@ -347,21 +366,29 @@ export default function DominioPage() {
               3. SSL e DNS são configurados automaticamente
             </AlertDescription>
           </Alert>
+          {hasReachedDomainLimit && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <AlertTriangle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Limite atingido:</strong> Cada loja pode ter apenas 1 domínio personalizado. Para adicionar um novo domínio, exclua o domínio existente primeiro.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex gap-4">
             <div className="flex-1">
               <Label htmlFor="domain">Domínio</Label>
               <Input
                 id="domain"
-                placeholder="exemplo.com.br"
+                placeholder={hasReachedDomainLimit ? "Limite de 1 domínio atingido" : "exemplo.com.br"}
                 value={newDomain}
                 onChange={(e) => setNewDomain(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && selectedStore && addDomain()}
-                disabled={!selectedStore}
+                onKeyPress={(e) => e.key === 'Enter' && selectedStore && !hasReachedDomainLimit && addDomain()}
+                disabled={!selectedStore || hasReachedDomainLimit}
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={addDomain} disabled={isCreatingZone || !selectedStore}>
-                {isCreatingZone ? 'Criando zona...' : 'Criar Zona'}
+              <Button onClick={addDomain} disabled={isCreatingZone || !selectedStore || hasReachedDomainLimit}>
+                {isCreatingZone ? 'Criando zona...' : hasReachedDomainLimit ? 'Limite atingido' : 'Criar Zona'}
               </Button>
             </div>
           </div>
@@ -518,6 +545,11 @@ export default function DominioPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* DNS Manager - Exibir apenas se houver domínios ativos */}
+      {cloudflareZones.some(zone => zone.status === 'active') && (
+        <DNSManager className="" selectedStoreId={selectedStore?.id} />
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import dns from 'dns'
 import { promisify } from 'util'
+import { maskSensitiveIPsInObject } from '@/lib/ip-mask'
 
 const prisma = new PrismaClient()
 const resolveCname = promisify(dns.resolveCname)
@@ -196,10 +197,10 @@ export async function POST(
       }
     })
     
-    return NextResponse.json({
+    return NextResponse.json(maskSensitiveIPsInObject({
       dominio: dominioAtualizado,
       verificacao: resultadoVerificacao
-    })
+    }))
   } catch (error) {
     console.error('Erro ao verificar domínio:', error)
     return NextResponse.json(
@@ -235,7 +236,7 @@ export async function GET(
       )
     }
     
-    return NextResponse.json({
+    return NextResponse.json(maskSensitiveIPsInObject({
       id: dominio.id,
       dominio: dominio.dominio,
       subdominio: dominio.subdominio,
@@ -245,7 +246,7 @@ export async function GET(
       erro_verificacao: dominio.erro_verificacao,
       configuracao_dns: dominio.configuracao_dns,
       url_checkout: `https://${dominio.subdominio}.${dominio.dominio}`
-    })
+    }))
   } catch (error) {
     console.error('Erro ao buscar domínio:', error)
     return NextResponse.json(
